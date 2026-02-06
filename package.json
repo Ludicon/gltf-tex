@@ -1,0 +1,32 @@
+{
+  "name": "gltf-tex",
+  "version": "1.0.0",
+  "description": "Command-line tool for processing textures in glTF models",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "gltf-tex": "./bin/gltf-tex.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "gltf",
+    "texture",
+    "compression",
+    "avif",
+    "webp",
+    "3d"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@gltf-transform/core": "^4.0.0",
+    "@gltf-transform/extensions": "^4.0.0",
+    "@gltf-transform/functions": "^4.0.0",
+    "draco3dgltf": "^1.5.7",
+    "meshoptimizer": "^0.21.0",
+    "p-limit": "^7.3.0",
+    "sharp": "^0.33.0"
+  }
+}

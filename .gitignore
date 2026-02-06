@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Assets
+assets/
+
+# Old scripts
+old-scripts/
+
+# Output directories
+*.glb.tmp/
+*_output/
+FlightHelmet/
+sponza-png/
+
+# Temporary files
+*.tmp
+tmp.png
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build output
+dist/
+build/
+
+# Environment variables
+.env
+.env.local
