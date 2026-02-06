@@ -1,13 +1,12 @@
 # gltf-tex
 
-A command-line tool for processing textures in glTF models, focused on texture compression and analysis.
+A command-line tool for processing textures in glTF models.
 
 ## Features
 
 - **AVIF Compression**: Compress textures using AVIF format with optimized settings per texture type
 - **WebP Compression**: (Coming soon) Compress textures using WebP format
-- **Blaze Compression**: (Coming soon) Compress textures using Blaze format
-- **Texture Inspection**: Analyze texture information and memory usage
+- **Texture Inspection**: Analyze texture information and memory usage with spark runtime compression
 
 ## Installation
 
@@ -103,13 +102,12 @@ Displays detailed information about all textures including:
 - Usage/slots (baseColor, normal, metallic/roughness, etc.)
 - Estimated video memory usage (GPU):
   - High quality: BC7/ASTC compression with mipmaps
-  - Low quality: Lower bit-rate compression with mipmaps
+  - Low quality: BC1/ETC2 compression with mipmaps
   - Uncompressed: Raw RGBA without mipmaps
 
 **Examples:**
 ```bash
 gltf-tex inspect model.glb
-gltf-tex inspect assets/FlightHelmet.glb
 ```
 
 ## Requirements
@@ -141,46 +139,6 @@ gltf-tex avif model.glb output.glb --sharp
 ```
 
 Note: This provides slightly different encoding characteristics than native avifenc.
-
-## Project Structure
-
-```
-gltf-tex/
-├── bin/
-│   └── gltf-tex.js          # CLI entry point
-├── src/
-│   ├── commands/            # Command implementations
-│   │   ├── help.js
-│   │   ├── avif.js
-│   │   ├── webp.js
-│   │   └── inspect.js
-│   ├── processors/          # Texture processing logic
-│   │   └── avif.js
-│   └── utils/               # Utility functions
-│       ├── args.js          # Argument parsing
-│       ├── file.js          # File utilities
-│       ├── io.js            # glTF I/O
-│       └── process.js       # Process spawning
-├── assets/                  # Test assets
-├── package.json
-└── README.md
-```
-
-## Development
-
-### Adding New Commands
-
-1. Create a new file in `src/commands/`
-2. Implement the command function
-3. Register it in `bin/gltf-tex.js`
-
-Example:
-```javascript
-export async function myCommand(args) {
-  const options = parseArgs(args);
-  // Command implementation
-}
-```
 
 ## License
 
