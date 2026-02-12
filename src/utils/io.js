@@ -2,6 +2,7 @@ import { NodeIO } from "@gltf-transform/core";
 import {
   EXTTextureAVIF,
   EXTTextureWebP,
+  KHRTextureBasisu,
   KHRMaterialsClearcoat,
   KHRMaterialsIOR,
   KHRMaterialsTransmission,
@@ -27,6 +28,7 @@ export async function createIO() {
   const io = new NodeIO().registerExtensions([
     EXTTextureAVIF,
     EXTTextureWebP,
+    KHRTextureBasisu,
     KHRMaterialsClearcoat,
     KHRMaterialsIOR,
     KHRMaterialsTransmission,

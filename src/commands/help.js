@@ -21,7 +21,8 @@ COMMANDS:
   help              Show this help message
   avif              Compress textures using AVIF format
   webp              Compress textures using WebP format
-  inspect           Inspect texture information in a glTF model
+  size              Display texture size information in a glTF model
+  dedup             Remove duplicate textures based on pixel data
 
 OPTIONS:
   -h, --help        Show help for a specific command
@@ -29,7 +30,7 @@ OPTIONS:
 EXAMPLES:
   gltf-tex help avif
   gltf-tex avif input.glb output.glb --quality 90
-  gltf-tex inspect model.glb
+  gltf-tex size model.glb
 
 For more information about a specific command, run:
   gltf-tex help <command>
@@ -99,11 +100,11 @@ DESCRIPTION:
 EXAMPLES:
   gltf-tex webp model.glb output.glb
 `,
-    inspect: `
-gltf-tex inspect - Inspect texture information in a glTF model
+    size: `
+gltf-tex size - Display texture size information in a glTF model
 
 USAGE:
-  gltf-tex inspect <input> [options]
+  gltf-tex size <input> [options]
 
 ARGUMENTS:
   <input>           Input glTF/GLB file path
@@ -122,8 +123,46 @@ DESCRIPTION:
     * Uncompressed: Raw RGBA without mipmaps
 
 EXAMPLES:
-  gltf-tex inspect model.glb
-  gltf-tex inspect assets/FlightHelmet.glb
+  gltf-tex size model.glb
+  gltf-tex size assets/FlightHelmet.glb
+`,
+    dedup: `
+gltf-tex dedup - Remove duplicate textures based on pixel data
+
+USAGE:
+  gltf-tex dedup <input> [output] [options]
+
+ARGUMENTS:
+  <input>           Input glTF/GLB file path
+  [output]          Output glTF/GLB file path (default: <input>-dedup.glb)
+
+OPTIONS:
+  --verbose         Show detailed logging of deduplication process
+  -h, --help        Show this help message
+
+DESCRIPTION:
+  Analyzes all textures in the glTF model and removes duplicates based on
+  pixel data comparison. This command:
+
+  1. Loads each texture's image data into memory
+  2. Decodes the image to raw pixels (ignoring file metadata)
+  3. Creates a hash of the pixel data + dimensions
+  4. Identifies textures with identical pixel content
+  5. Remaps all material references to point to a single copy
+  6. Removes the duplicate textures
+
+  This approach ignores differences in:
+  - File format metadata (EXIF, PNG chunks, etc.)
+  - Compression settings
+  - File encoding
+
+  Only actual pixel data is compared, making it effective at finding true
+  duplicates even when stored in different formats or with different metadata.
+
+EXAMPLES:
+  gltf-tex dedup model.glb
+  gltf-tex dedup model.glb output.glb
+  gltf-tex dedup model.glb --verbose
 `,
   };
 

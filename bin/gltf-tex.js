@@ -9,13 +9,15 @@ const __dirname = dirname(__filename);
 import { helpCommand } from "../src/commands/help.js";
 import { avifCommand } from "../src/commands/avif.js";
 import { webpCommand } from "../src/commands/webp.js";
-import { inspectCommand } from "../src/commands/inspect.js";
+import { sizeCommand } from "../src/commands/size.js";
+import { dedupCommand } from "../src/commands/dedup.js";
 
 const commands = {
   help: helpCommand,
   avif: avifCommand,
   webp: webpCommand,
-  inspect: inspectCommand,
+  size: sizeCommand,
+  dedup: dedupCommand,
 };
 
 async function main() {

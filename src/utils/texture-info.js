@@ -1,4 +1,4 @@
-import { ImageUtils } from "@gltf-transform/core";
+import { ImageUtils, TextureChannel } from "@gltf-transform/core";
 
 /**
  * Format bytes to human-readable string
@@ -35,9 +35,7 @@ function computeTextureSize(w, h, blockSize, mipmaps) {
   do {
     const bw = Math.ceil(w / 4);
     const bh = Math.ceil(h / 4);
-    const bytesPerRow =
-      Math.ceil((bw * blockSize) / BYTES_PER_ROW_ALIGNMENT) *
-      BYTES_PER_ROW_ALIGNMENT;
+    const bytesPerRow = Math.ceil((bw * blockSize) / BYTES_PER_ROW_ALIGNMENT) * BYTES_PER_ROW_ALIGNMENT;
     const alignedSize = bh * bytesPerRow;
 
     outputSize += alignedSize;
@@ -49,6 +47,8 @@ function computeTextureSize(w, h, blockSize, mipmaps) {
   return outputSize;
 }
 
+// IC: Ideally this code should use Spark API for size estimation.
+// translate the slots into a format mask.
 /**
  * Estimate compressed texture size in video memory
  * @param {number} width - Texture width
@@ -57,20 +57,24 @@ function computeTextureSize(w, h, blockSize, mipmaps) {
  * @param {boolean} lowQuality - Whether to estimate for low quality
  * @returns {number} Estimated size in bytes
  */
-export function estimateCompressedSize(width, height, slots, lowQuality) {
+export function estimateCompressedSize(width, height, slots, channels, lowQuality) {
   // Align the dimensions to the block extents
   const w = Math.ceil(width / 4) * 4;
   const h = Math.ceil(height / 4) * 4;
 
   let blockSize = 16; // Assume 16 bytes (BC7/ASTC).
 
-  if (slots.length === 1 && slots[0] === "occlusionTexture") {
+  if (channels === TextureChannel.R) {
     blockSize = 8;
   }
+
   if (lowQuality) {
-    // @@ FIXME: Also exclude textures with alpha.
-    if (!slots.includes("normalTexture")) {
-      blockSize = 8;
+    // At low quality we use 8 bytes per block formats, with the exception of normal maps
+    // and textures with alpha.
+    blockSize = 8;
+
+    if (slots.includes("normalTexture") || channels & TextureChannel.A) {
+      blockSize = 16;
     }
   }
 
@@ -79,7 +83,7 @@ export function estimateCompressedSize(width, height, slots, lowQuality) {
 
 /**
  * Get texture dimensions from image bytes
- * @param {Buffer} bytes - Image buffer
+ * @param {Buffer} imageBuffer - Image buffer
  * @param {string} mimeType - MIME type
  * @returns {[number, number]} Width and height
  */
@@ -95,7 +99,7 @@ export function getDimensionsFromImageBytes(bytes, mimeType) {
  * @param {string[]} slots - Texture slots
  * @returns {object} Texture info
  */
-export function getTextureInfo(texture, index, slots) {
+export function getTextureInfo(texture, index, slots, channels) {
   const image = texture.getImage();
   if (!image) return null;
 
@@ -104,9 +108,18 @@ export function getTextureInfo(texture, index, slots) {
   const size = image.length;
 
   const [width, height] = getDimensionsFromImageBytes(image, mimeType);
-  const videoMemorySize = estimateCompressedSize(width, height, slots, false);
-  const videoMemorySizeLow = estimateCompressedSize(width, height, slots, true);
-  const videoMemorySizeUncompressed = width * height * 4;
+
+  // For KTX2 files, use actual VRAM calculation
+  let videoMemorySize, videoMemorySizeLow, videoMemorySizeUncompressed;
+  if (mimeType === "image/ktx2") {
+    videoMemorySize = ImageUtils.getVRAMByteLength(new Uint8Array(image), mimeType);
+    videoMemorySizeLow = videoMemorySize; // KTX2 is already compressed
+    videoMemorySizeUncompressed = videoMemorySize; // Already in GPU format
+  } else {
+    videoMemorySize = estimateCompressedSize(width, height, slots, channels, false);
+    videoMemorySizeLow = estimateCompressedSize(width, height, slots, channels, true);
+    videoMemorySizeUncompressed = width * height * 4;
+  }
 
   return {
     name,

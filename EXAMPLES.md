@@ -126,8 +126,8 @@ gltf-tex avif pbr-model.glb output.glb --quality 85
 # 1. Compress textures
 gltf-tex avif source.glb compressed.glb --quality 85 --speed 4
 
-# 2. Inspect results (when implemented)
-# gltf-tex inspect compressed.glb
+# 2. Display texture sizes
+gltf-tex size compressed.glb
 
 # 3. Compare file sizes
 echo "Original size: $(du -h source.glb | cut -f1)"

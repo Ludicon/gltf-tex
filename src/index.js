@@ -4,7 +4,7 @@
 export { avifCommand } from "./commands/avif.js";
 export { webpCommand } from "./commands/webp.js";
 export { blazeCommand } from "./commands/blaze.js";
-export { inspectCommand } from "./commands/inspect.js";
+export { sizeCommand } from "./commands/size.js";
 export { helpCommand } from "./commands/help.js";
 
 // Processors
@@ -15,11 +15,9 @@ export {
   processTextureBlaze,
   blazeArgsForTexture,
 } from "./processors/avif.js";
-export {
-  processTexturesAVIFSharp,
-  processTextureAVIFSharp,
-  avifOptionsForTexture,
-} from "./processors/avif-sharp.js";
+export { processTexturesAVIFSharp, processTextureAVIFSharp, avifOptionsForTexture } from "./processors/avif-sharp.js";
+
+export { dedupTextures } from "./processors/dedup.js";
 
 // Utilities
 export { parseArgs, validateRange } from "./utils/args.js";

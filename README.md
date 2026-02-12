@@ -87,11 +87,11 @@ Compress textures using WebP format. *(Not yet implemented)*
 gltf-tex webp <input> <output>
 ```
 
-#### `inspect`
-Inspect texture information in a glTF model, including dimensions, formats, sizes, and estimated video memory usage.
+#### `size`
+Display texture information in a glTF model, including dimensions, formats, sizes, and estimated video memory usage.
 
 ```bash
-gltf-tex inspect <input>
+gltf-tex size <input>
 ```
 
 **Description:**
@@ -107,7 +107,7 @@ Displays detailed information about all textures including:
 
 **Examples:**
 ```bash
-gltf-tex inspect model.glb
+gltf-tex size model.glb
 ```
 
 ## Requirements
