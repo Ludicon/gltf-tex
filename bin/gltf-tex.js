@@ -8,6 +8,7 @@ const __dirname = dirname(__filename);
 // Import commands
 import { helpCommand } from "../src/commands/help.js";
 import { avifCommand } from "../src/commands/avif.js";
+import { blazeCommand } from "../src/commands/blaze.js";
 import { webpCommand } from "../src/commands/webp.js";
 import { sizeCommand } from "../src/commands/size.js";
 import { dedupCommand } from "../src/commands/dedup.js";
@@ -15,6 +16,7 @@ import { dedupCommand } from "../src/commands/dedup.js";
 const commands = {
   help: helpCommand,
   avif: avifCommand,
+  blaze: blazeCommand,
   webp: webpCommand,
   size: sizeCommand,
   dedup: dedupCommand,

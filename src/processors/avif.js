@@ -88,50 +88,101 @@ export function avifArgsForTexture(slots, quality, speed) {
  * @param {string[]} slots - Texture slots (e.g., 'normalTexture', 'baseColorTexture')
  * @param {number} quality - Quality level (0-100)
  * @param {number} speed - Encoding speed (0-10)
+ * @param {object} options - Additional Blaze options
+ * @param {number} [options.qualityAlpha] - Quality factor for alpha (0-100=lossless)
+ * @param {number} [options.tileRowsLog2] - Tile rows log2 (0-6)
+ * @param {number} [options.tileColsLog2] - Tile columns log2 (0-6)
+ * @param {boolean} [options.autoTiling] - Enable automatic tiling
+ * @param {boolean} [options.tenbit] - Force 10-bit output
+ * @param {number} [options.colorPrimaries] - Color primaries (1-22)
+ * @param {number} [options.transferCharacteristics] - Transfer characteristics (1-18)
+ * @param {number} [options.matrixCoeffs] - Matrix coefficients (0-14)
  * @returns {string[]} blaze_enc arguments
  */
-export function blazeArgsForTexture(slots, quality, speed) {
-  // Encode normals using hint=normal and tune=ssim.
+export function blazeArgsForTexture(slots, quality, speed, options = {}) {
+  const {
+    qualityAlpha,
+    tileRowsLog2,
+    tileColsLog2,
+    autoTiling,
+    tenbit,
+    colorPrimaries,
+    transferCharacteristics,
+    matrixCoeffs,
+  } = options;
+
+  let hint;
+  let tune;
+
+  // Determine hint and tune based on texture type
   if (slots.length === 1 && slots[0] === "normalTexture") {
-    return [
-      "-q",
-      `${quality}`,
-      "-s",
-      `${speed}`,
-      "--hint",
-      "normal",
-      "--tune",
-      "ssim",
-    ];
+    hint = "normal";
+    tune = "ssim";
+  } else if (slots.includes("metallicRoughnessTexture")) {
+    hint = "orm";
+    tune = "ssim";
+  } else {
+    hint = "albedo";
+    tune = "iq";
   }
 
-  // ORM textures use hint=orm and tune=ssim.
-  if (slots.includes("metallicRoughnessTexture")) {
-    return [
-      "-q",
-      `${quality}`,
-      "-s",
-      `${speed}`,
-      "--hint",
-      "orm",
-      "--tune",
-      "ssim",
-    ];
+  // Override tune if explicitly specified and slots aren't forcing specific tune
+  if (options.tune) {
+    tune = options.tune;
   }
 
-  // Everything else (baseColor, emissive, etc) assume hint=albedo and tune=iq.
-  return [
+  // Override hint if explicitly specified and slots aren't forcing specific hint
+  if (options.hint) {
+    hint = options.hint;
+  }
+
+  const args = [
     "-q",
-    `${quality}`,
-    "--quality-alpha",
     `${quality}`,
     "-s",
     `${speed}`,
     "--hint",
-    "albedo",
+    hint,
     "--tune",
-    "iq",
+    tune,
   ];
+
+  // Add quality-alpha if specified (for non-normal textures, defaults to quality otherwise)
+  if (qualityAlpha !== undefined) {
+    args.push("--quality-alpha", `${qualityAlpha}`);
+  } else if (hint === "albedo") {
+    // For albedo textures, default to using same quality for alpha
+    args.push("--quality-alpha", `${quality}`);
+  }
+
+  // Add tile configuration
+  if (tileRowsLog2 !== undefined) {
+    args.push("--tile-rows-log2", `${tileRowsLog2}`);
+  }
+  if (tileColsLog2 !== undefined) {
+    args.push("--tile-cols-log2", `${tileColsLog2}`);
+  }
+  if (autoTiling !== undefined) {
+    args.push("--auto-tiling", autoTiling ? "1" : "0");
+  }
+
+  // Add bit depth option
+  if (tenbit !== undefined) {
+    args.push("--tenbit", tenbit ? "1" : "0");
+  }
+
+  // Add color space options
+  if (colorPrimaries !== undefined) {
+    args.push("--color-primaries", `${colorPrimaries}`);
+  }
+  if (transferCharacteristics !== undefined) {
+    args.push("--transfer-characteristics", `${transferCharacteristics}`);
+  }
+  if (matrixCoeffs !== undefined) {
+    args.push("--matrix-coeffs", `${matrixCoeffs}`);
+  }
+
+  return args;
 }
 
 /**
@@ -229,6 +280,18 @@ export async function processTextureAVIF(
  * @param {string[]} slots - Texture slots
  * @param {number} quality - Quality level (0-100)
  * @param {number} speed - Encoding speed (0-10)
+ * @param {object} options - Additional Blaze options
+ * @param {number} [options.qualityAlpha] - Quality factor for alpha (0-100=lossless)
+ * @param {number} [options.maxThreads] - Maximum number of threads to use (1-255)
+ * @param {number} [options.tileRowsLog2] - Tile rows log2 (0-6)
+ * @param {number} [options.tileColsLog2] - Tile columns log2 (0-6)
+ * @param {boolean} [options.autoTiling] - Enable automatic tiling
+ * @param {boolean} [options.tenbit] - Force 10-bit output
+ * @param {string} [options.tune] - Tuning mode (ssim, iq, ssimulacra2, psnr)
+ * @param {string} [options.hint] - Texture hint (albedo, normal, displacement, roughness, opacity, metalness, orm)
+ * @param {number} [options.colorPrimaries] - Color primaries (1-22)
+ * @param {number} [options.transferCharacteristics] - Transfer characteristics (1-18)
+ * @param {number} [options.matrixCoeffs] - Matrix coefficients (0-14)
  * @returns {Promise<void>}
  */
 export async function processTextureBlaze(
@@ -237,12 +300,19 @@ export async function processTextureBlaze(
   slots,
   quality,
   speed,
+  options = {},
 ) {
-  const args = blazeArgsForTexture(slots, quality, speed);
+  const { maxThreads } = options;
+
+  const args = blazeArgsForTexture(slots, quality, speed, options);
+
+  // Determine thread count
+  const threadCount =
+    maxThreads !== undefined ? maxThreads : os.availableParallelism();
 
   await run("blaze_enc", [
     "--max-threads",
-    os.availableParallelism().toString(),
+    threadCount.toString(),
     ...args,
     inPath,
     outPath,
@@ -259,6 +329,17 @@ export async function processTextureBlaze(
  * @param {boolean} options.debug - Keep intermediate files for debugging (default: false)
  * @param {boolean} options.blaze - Use blaze_enc instead of avifenc (default: false)
  * @param {number} options.concurrency - Number of textures to process in parallel (default: 4)
+ * @param {number} [options.qualityAlpha] - Quality factor for alpha (0-100=lossless) [Blaze only]
+ * @param {number} [options.maxThreads] - Maximum number of threads to use (1-255) [Blaze only]
+ * @param {number} [options.tileRowsLog2] - Tile rows log2 (0-6) [Blaze only]
+ * @param {number} [options.tileColsLog2] - Tile columns log2 (0-6) [Blaze only]
+ * @param {boolean} [options.autoTiling] - Enable automatic tiling [Blaze only]
+ * @param {boolean} [options.tenbit] - Force 10-bit output [Blaze only]
+ * @param {string} [options.tune] - Tuning mode (ssim, iq, ssimulacra2, psnr) [Blaze only]
+ * @param {string} [options.hint] - Texture hint override [Blaze only]
+ * @param {number} [options.colorPrimaries] - Color primaries (1-22) [Blaze only]
+ * @param {number} [options.transferCharacteristics] - Transfer characteristics (1-18) [Blaze only]
+ * @param {number} [options.matrixCoeffs] - Matrix coefficients (0-14) [Blaze only]
  * @returns {Promise<void>}
  */
 export async function processTexturesAVIF(doc, inputPath, options) {
@@ -268,6 +349,17 @@ export async function processTexturesAVIF(doc, inputPath, options) {
     debug = false,
     blaze = false,
     concurrency = 4,
+    qualityAlpha,
+    maxThreads,
+    tileRowsLog2,
+    tileColsLog2,
+    autoTiling,
+    tenbit,
+    tune,
+    hint,
+    colorPrimaries,
+    transferCharacteristics,
+    matrixCoeffs,
   } = options;
   const { EXTTextureAVIF } = await import("@gltf-transform/extensions");
   const { listTextureSlots } = await import("@gltf-transform/functions");
@@ -336,7 +428,19 @@ export async function processTexturesAVIF(doc, inputPath, options) {
 
           // Process with appropriate encoder
           if (blaze) {
-            await processTextureBlaze(inPath, outPath, slots, quality, speed);
+            await processTextureBlaze(inPath, outPath, slots, quality, speed, {
+              qualityAlpha,
+              maxThreads,
+              tileRowsLog2,
+              tileColsLog2,
+              autoTiling,
+              tenbit,
+              tune,
+              hint,
+              colorPrimaries,
+              transferCharacteristics,
+              matrixCoeffs,
+            });
           } else {
             await processTextureAVIF(inPath, outPath, slots, quality, speed);
           }

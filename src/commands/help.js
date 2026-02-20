@@ -20,6 +20,7 @@ USAGE:
 COMMANDS:
   help              Show this help message
   avif              Compress textures using AVIF format
+  blaze             Compress textures using Blaze AVIF encoder
   webp              Compress textures using WebP format
   size              Display texture size information in a glTF model
   dedup             Remove duplicate textures based on pixel data
@@ -125,6 +126,57 @@ DESCRIPTION:
 EXAMPLES:
   gltf-tex size model.glb
   gltf-tex size assets/FlightHelmet.glb
+`,
+    blaze: `
+gltf-tex blaze - Compress textures using Blaze AVIF encoder
+
+USAGE:
+  gltf-tex blaze <input> [output] [options]
+
+ARGUMENTS:
+  <input>                       Input glTF/GLB file path
+  [output]                      Output glTF/GLB file path (default: <input>-blaze.glb)
+
+OPTIONS:
+  --quality <0-100>             Quantizer value (default: 50)
+  --speed <0-10>                Encoder speed: 0=slowest, 10=fastest (default: 4)
+  --quality-alpha <0-100>       Quality factor for alpha, 100=lossless (default: 100)
+  --max-threads <1-255>         Maximum number of threads to use (default: auto)
+  --tile-rows-log2 <0-6>        Tile rows log2 (default: auto-tiling)
+  --tile-cols-log2 <0-6>        Tile columns log2 (default: auto-tiling)
+  --auto-tiling <true/false>    Enable automatic tiling (default: true)
+  --tenbit <true/false>         Force 10-bit output (default: true)
+  --tune <mode>                 Tuning mode: ssim, iq, ssimulacra2, psnr (default: auto based on texture)
+  --hint <type>                 Texture hint: albedo, normal, displacement, roughness, opacity, metalness, orm (default: auto based on texture)
+  --color-primaries <1-22>      Color primaries CICP value (default: 2)
+  --transfer-characteristics <1-18>  Transfer characteristics CICP value (default: 2)
+  --matrix-coeffs <0-14>        Matrix coefficients CICP value (default: 2)
+  --concurrency <1-32>          Number of textures to process in parallel (default: 4)
+  --debug                       Keep intermediate files for debugging
+  -h, --help                    Show this help message
+
+DESCRIPTION:
+  Compresses all textures in the glTF model using Blaze AVIF encoder.
+  Blaze is optimized for texture compression and provides advanced options
+  for fine-tuning encoding parameters.
+
+  Texture hints and tuning modes are automatically selected based on texture usage:
+  - Normal maps: hint=normal, tune=ssim
+  - Metallic/Roughness (ORM): hint=orm, tune=ssim
+  - All other textures: hint=albedo, tune=iq
+
+  Use --hint or --tune to override automatic selection.
+
+  The --quality-alpha option controls alpha channel quality. Setting it to 100
+  (default) provides lossless alpha, which is recommended for textures with
+  transparency.
+
+EXAMPLES:
+  gltf-tex blaze model.glb
+  gltf-tex blaze model.glb output.glb --quality 80 --speed 2
+  gltf-tex blaze model.glb --tune ssimulacra2 --tenbit false
+  gltf-tex blaze model.glb --hint normal --quality 40
+  gltf-tex blaze model.glb --debug
 `,
     dedup: `
 gltf-tex dedup - Remove duplicate textures based on pixel data
