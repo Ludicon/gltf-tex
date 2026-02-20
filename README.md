@@ -24,6 +24,7 @@ gltf-tex <command> [options]
 ### Commands
 
 #### `help`
+
 Show help information for all commands or a specific command.
 
 ```bash
@@ -32,6 +33,7 @@ gltf-tex help avif
 ```
 
 #### `avif`
+
 Compress textures using AVIF format with optimal encoding settings based on texture usage.
 
 ```bash
@@ -39,6 +41,7 @@ gltf-tex avif <input> [output] [options]
 ```
 
 **Options:**
+
 - `--quality <0-100>`: Quality level for compression (default: 80)
 - `--speed <0-10>`: Encoding speed: 0=slowest, 10=fastest (default: 4)
 - `--sharp`: Use sharp (npm package) instead of native avifenc (optional)
@@ -46,6 +49,7 @@ gltf-tex avif <input> [output] [options]
 - `--debug`: Keep intermediate files for debugging
 
 **Examples:**
+
 ```bash
 # Compress with default settings (output: model-avif.glb)
 gltf-tex avif model.glb
@@ -69,6 +73,7 @@ gltf-tex avif model.glb --blaze
 **Encoding Details:**
 
 The AVIF encoder automatically applies optimal settings based on texture type:
+
 - **Normal maps**: Identity color transform, SSIM tuning, normalized with Z channel cleared
 - **Occlusion maps**: Grayscale encoding (YUV 400)
 - **Metallic/Roughness maps**: Identity color transform, SSIM tuning
@@ -76,18 +81,23 @@ The AVIF encoder automatically applies optimal settings based on texture type:
 
 **Advanced Options:**
 
-- The `--sharp` flag allows using the sharp npm package instead of native tools. This can be useful for distribution scenarios where installing external dependencies is difficult, though it provides slightly different encoding characteristics and fewer tuning options.
+- The `--sharp` flag allows using the sharp npm package instead of native tools. This can be useful for distribution
+  scenarios where installing external dependencies is difficult, though it provides slightly different encoding
+  characteristics and fewer tuning options.
 
-- The `--blaze` flag uses the blaze_enc encoder instead of avifenc (experimental). Blaze encoder provides different quality/performance trade-offs and requires the `blaze_enc` command to be available in your PATH.
+- The `--blaze` flag uses the blaze_enc encoder instead of avifenc (experimental). Blaze encoder provides different
+  quality/performance trade-offs and requires the `blaze_enc` command to be available in your PATH.
 
 #### `webp`
-Compress textures using WebP format. *(Not yet implemented)*
+
+Compress textures using WebP format. _(Not yet implemented)_
 
 ```bash
 gltf-tex webp <input> <output>
 ```
 
 #### `size`
+
 Display texture information in a glTF model, including dimensions, formats, sizes, and estimated video memory usage.
 
 ```bash
@@ -97,6 +107,7 @@ gltf-tex size <input>
 **Description:**
 
 Displays detailed information about all textures including:
+
 - Texture dimensions and format
 - Disk size (current file size)
 - Usage/slots (baseColor, normal, metallic/roughness, etc.)
@@ -106,6 +117,7 @@ Displays detailed information about all textures including:
   - Uncompressed: Raw RGBA without mipmaps
 
 **Examples:**
+
 ```bash
 gltf-tex size model.glb
 ```
@@ -121,18 +133,21 @@ The AVIF command requires the following external tools to be installed:
 - **dwebp**: WebP decoder (from libwebp, if processing WebP textures)
 
 **macOS (using Homebrew):**
+
 ```bash
 brew install libavif imagemagick webp
 ```
 
 **Ubuntu/Debian:**
+
 ```bash
 apt-get install libavif-bin imagemagick webp
 ```
 
 ### Alternative: Using Sharp (Optional)
 
-If you cannot install external tools, you can use the `--sharp` flag which uses the sharp npm package bundled with the tool:
+If you cannot install external tools, you can use the `--sharp` flag which uses the sharp npm package bundled with the
+tool:
 
 ```bash
 gltf-tex avif model.glb output.glb --sharp

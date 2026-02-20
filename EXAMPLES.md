@@ -200,16 +200,19 @@ npm link
 The AVIF command requires external tools. Install them:
 
 **macOS:**
+
 ```bash
 brew install libavif imagemagick webp
 ```
 
 **Ubuntu/Debian:**
+
 ```bash
 sudo apt-get install libavif-bin imagemagick webp
 ```
 
-Alternatively, you can use the `--sharp` flag to avoid external dependencies (though with slightly different encoding characteristics).
+Alternatively, you can use the `--sharp` flag to avoid external dependencies (though with slightly different encoding
+characteristics).
 
 ### Processing Fails
 
@@ -262,37 +265,37 @@ clean:
 You can also use gltf-tex as a library:
 
 ```javascript
-import { processTexturesAVIF, readGLTF, writeGLTF } from 'gltf-tex';
+import { processTexturesAVIF, readGLTF, writeGLTF, } from "gltf-tex";
 
-async function compressModel(inputPath, outputPath) {
-  const doc = await readGLTF(inputPath);
-  
+async function compressModel(inputPath, outputPath,) {
+  const doc = await readGLTF(inputPath,);
+
   await processTexturesAVIF(doc, inputPath, {
     quality: 85,
-    speed: 4
-  });
-  
-  await writeGLTF(outputPath, doc);
+    speed: 4,
+  },);
+
+  await writeGLTF(outputPath, doc,);
 }
 
-compressModel('model.glb', 'output.glb');
+compressModel("model.glb", "output.glb",);
 ```
 
 For distribution scenarios where you cannot rely on external tools, you can use the sharp-based processor:
 
 ```javascript
-import { processTexturesAVIFSharp, readGLTF, writeGLTF } from 'gltf-tex';
+import { processTexturesAVIFSharp, readGLTF, writeGLTF, } from "gltf-tex";
 
-async function compressModel(inputPath, outputPath) {
-  const doc = await readGLTF(inputPath);
-  
+async function compressModel(inputPath, outputPath,) {
+  const doc = await readGLTF(inputPath,);
+
   await processTexturesAVIFSharp(doc, inputPath, {
     quality: 85,
-    speed: 4
-  });
-  
-  await writeGLTF(outputPath, doc);
+    speed: 4,
+  },);
+
+  await writeGLTF(outputPath, doc,);
 }
 
-compressModel('model.glb', 'output.glb');
+compressModel("model.glb", "output.glb",);
 ```

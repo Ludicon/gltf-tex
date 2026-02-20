@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, } from "node:child_process";
 
 /**
  * Run a command and return the output
@@ -7,20 +7,20 @@ import { spawn } from "node:child_process";
  * @param {object} options - Options for spawn
  * @returns {Promise<{out: string, err: string}>}
  */
-export function run(cmd, args, { cwd } = {}) {
-  return new Promise((resolve, reject) => {
-    const p = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
+export function run(cmd, args, { cwd, } = {},) {
+  return new Promise((resolve, reject,) => {
+    const p = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe",], },);
     let out = "";
     let err = "";
-    p.stdout.on("data", (d) => (out += d.toString()));
-    p.stderr.on("data", (d) => (err += d.toString()));
-    p.on("error", reject);
-    p.on("close", (code) => {
+    p.stdout.on("data", (d,) => (out += d.toString()),);
+    p.stderr.on("data", (d,) => (err += d.toString()),);
+    p.on("error", reject,);
+    p.on("close", (code,) => {
       if (code === 0) {
-        resolve({ out, err });
+        resolve({ out, err, },);
       } else {
-        reject(new Error(`${cmd} ${args.join(" ")} failed (code ${code})\n${err || out}`));
+        reject(new Error(`${cmd} ${args.join(" ",)} failed (code ${code})\n${err || out}`,),);
       }
-    });
-  });
+    },);
+  },);
 }

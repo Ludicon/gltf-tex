@@ -1,10 +1,10 @@
 import process from "node:process";
-export function helpCommand(args) {
+export function helpCommand(args,) {
   const commandName = args[0];
 
   if (commandName) {
     // Show help for specific command
-    showCommandHelp(commandName);
+    showCommandHelp(commandName,);
   } else {
     // Show general help
     showGeneralHelp();
@@ -36,10 +36,10 @@ EXAMPLES:
 
 For more information about a specific command, run:
   gltf-tex help <command>
-`);
+`,);
 }
 
-function showCommandHelp(commandName) {
+function showCommandHelp(commandName,) {
   const helpText = {
     avif: `
 gltf-tex avif - Compress textures using AVIF format
@@ -220,10 +220,10 @@ EXAMPLES:
   };
 
   if (helpText[commandName]) {
-    console.log(helpText[commandName]);
+    console.log(helpText[commandName],);
   } else {
-    console.error(`Unknown command: ${commandName}`);
-    console.error('Run "gltf-tex help" for a list of available commands.');
-    process.exit(1);
+    console.error(`Unknown command: ${commandName}`,);
+    console.error('Run "gltf-tex help" for a list of available commands.',);
+    process.exit(1,);
   }
 }

@@ -3,9 +3,9 @@ import path from "node:path";
 
 import sharp from "sharp";
 import pLimit from "p-limit";
-import { getFileExt } from "../utils/file.js";
-import { formatBytes } from "../utils/texture-info.js";
-import { Buffer } from "node:buffer";
+import { getFileExt, } from "../utils/file.js";
+import { formatBytes, } from "../utils/texture-info.js";
+import { Buffer, } from "node:buffer";
 
 /**
  * Get AVIF encoding options based on texture usage
@@ -14,10 +14,10 @@ import { Buffer } from "node:buffer";
  * @param {number} speed - Encoding speed (0-10)
  * @returns {object} sharp AVIF options
  */
-export function avifOptionsForTexture(slots, quality, speed) {
+export function avifOptionsForTexture(slots, quality, speed,) {
   // Convert speed (0-10, slower-faster) to effort (0-9, faster-slower)
   // speed 0 = effort 9 (slowest), speed 10 = effort 0 (fastest)
-  const effort = Math.max(0, Math.min(9, Math.round(9 - speed * 0.9)));
+  const effort = Math.max(0, Math.min(9, Math.round(9 - speed * 0.9,),),);
 
   const baseOptions = {
     quality,
@@ -44,7 +44,7 @@ export function avifOptionsForTexture(slots, quality, speed) {
   // }
 
   // Encode ORM textures - maintain color fidelity
-  if (slots.includes("metallicRoughnessTexture")) {
+  if (slots.includes("metallicRoughnessTexture",)) {
     return {
       ...baseOptions,
       chromaSubsampling: "4:4:4",
@@ -60,18 +60,18 @@ export function avifOptionsForTexture(slots, quality, speed) {
  * @param {Buffer} imageBuffer - Input image buffer
  * @returns {Promise<Buffer>} Normalized image buffer
  */
-async function normalizeNormalMap(imageBuffer) {
+async function normalizeNormalMap(imageBuffer,) {
   // Read the image and ensure RGBA
-  const image = sharp(imageBuffer).ensureAlpha();
-  const { width, height, channels: _channels } = await image.metadata();
+  const image = sharp(imageBuffer,).ensureAlpha();
+  const { width, height, channels: _channels, } = await image.metadata();
 
   // Get raw pixel data as RGBA
-  const { data, info } = await image
+  const { data, info, } = await image
     .raw()
-    .toBuffer({ resolveWithObject: true });
+    .toBuffer({ resolveWithObject: true, },);
 
   // Process each pixel
-  const normalized = Buffer.alloc(width * height * 4);
+  const normalized = Buffer.alloc(width * height * 4,);
 
   for (let i = 0; i < data.length; i += info.channels) {
     const outIdx = (i / info.channels) * 4;
@@ -82,7 +82,7 @@ async function normalizeNormalMap(imageBuffer) {
     let nz = (data[i + 2] / 255) * 2 - 1;
 
     // Normalize the vector
-    const len = Math.sqrt(Math.max(0, nx * nx + ny * ny + nz * nz));
+    const len = Math.sqrt(Math.max(0, nx * nx + ny * ny + nz * nz,),);
     const invLen = len > 1e-6 ? 1 / len : 0;
 
     nx *= invLen;
@@ -90,8 +90,8 @@ async function normalizeNormalMap(imageBuffer) {
     nz *= invLen;
 
     // Convert back to [0, 255] and clear Z component
-    normalized[outIdx] = Math.round((nx * 0.5 + 0.5) * 255);
-    normalized[outIdx + 1] = Math.round((ny * 0.5 + 0.5) * 255);
+    normalized[outIdx] = Math.round((nx * 0.5 + 0.5) * 255,);
+    normalized[outIdx + 1] = Math.round((ny * 0.5 + 0.5) * 255,);
     normalized[outIdx + 2] = 0; // Clear Z component
     normalized[outIdx + 3] = info.channels >= 4 ? data[i + 3] : 255; // Preserve alpha or set to opaque
   }
@@ -103,7 +103,7 @@ async function normalizeNormalMap(imageBuffer) {
       height,
       channels: 4,
     },
-  })
+  },)
     .png()
     .toBuffer();
 }
@@ -122,18 +122,17 @@ export async function processTextureAVIFSharp(
   quality,
   speed,
 ) {
-  const options = avifOptionsForTexture(slots, quality, speed);
+  const options = avifOptionsForTexture(slots, quality, speed,);
 
   let processedBuffer = imageBuffer;
 
   // Special processing for normal maps
   if (slots.length === 1 && slots[0] === "normalTexture") {
-    processedBuffer = await normalizeNormalMap(imageBuffer);
+    processedBuffer = await normalizeNormalMap(imageBuffer,);
   }
 
-
   // Encode as AVIF
-  return sharp(processedBuffer).avif(options).toBuffer();
+  return sharp(processedBuffer,).avif(options,).toBuffer();
 }
 
 /**
@@ -147,13 +146,13 @@ export async function processTextureAVIFSharp(
  * @param {number} options.concurrency - Number of textures to process in parallel (default: 4)
  * @returns {Promise<void>}
  */
-export async function processTexturesAVIFSharp(doc, inputPath, options) {
-  const { quality = 80, speed = 4, debug = false, concurrency = 4 } = options;
-  const { EXTTextureAVIF } = await import("@gltf-transform/extensions");
-  const { listTextureSlots } = await import("@gltf-transform/functions");
+export async function processTexturesAVIFSharp(doc, inputPath, options,) {
+  const { quality = 80, speed = 4, debug = false, concurrency = 4, } = options;
+  const { EXTTextureAVIF, } = await import("@gltf-transform/extensions");
+  const { listTextureSlots, } = await import("@gltf-transform/functions");
 
   // Create extension and set it as required
-  doc.createExtension(EXTTextureAVIF).setRequired(true);
+  doc.createExtension(EXTTextureAVIF,).setRequired(true,);
 
   const root = doc.getRoot();
   const textures = root.listTextures();
@@ -161,8 +160,8 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
   // Create debug directory if needed
   let outDir = null;
   if (debug) {
-    outDir = path.parse(inputPath).name;
-    await fs.mkdir(outDir, { recursive: true });
+    outDir = path.parse(inputPath,).name;
+    await fs.mkdir(outDir, { recursive: true, },);
   }
 
   // Statistics tracking
@@ -179,17 +178,17 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
 
   try {
     // Set up concurrency limiter
-    const limit = pLimit(concurrency);
+    const limit = pLimit(concurrency,);
 
     // Create processing tasks for all textures
-    const tasks = textures.map((tex, i) =>
+    const tasks = textures.map((tex, i,) =>
       limit(async () => {
         const image = tex.getImage();
         if (!image) return null;
 
         const name = tex.getName() || `tex_${i}`;
         const mimeType = tex.getMimeType();
-        const slots = listTextureSlots(tex);
+        const slots = listTextureSlots(tex,);
 
         const currentCount = ++completedCount;
         console.log(
@@ -200,9 +199,9 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
         try {
           // Save original image in debug mode
           if (debug && outDir) {
-            const extension = getFileExt(mimeType);
-            const originalPath = path.join(outDir, `${name}${extension}`);
-            await fs.writeFile(originalPath, image);
+            const extension = getFileExt(mimeType,);
+            const originalPath = path.join(outDir, `${name}${extension}`,);
+            await fs.writeFile(originalPath, image,);
           }
 
           // Process and encode the texture
@@ -215,19 +214,19 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
 
           // Save AVIF in debug mode
           if (debug && outDir) {
-            const avifPath = path.join(outDir, `${name}.avif`);
-            await fs.writeFile(avifPath, avifBuffer);
+            const avifPath = path.join(outDir, `${name}.avif`,);
+            await fs.writeFile(avifPath, avifBuffer,);
           }
 
           // Update texture
-          tex.setImage(avifBuffer);
-          tex.setMimeType("image/avif");
+          tex.setImage(avifBuffer,);
+          tex.setMimeType("image/avif",);
 
           const ratio = ((1 - avifBuffer.length / image.length) * 100).toFixed(
             1,
           );
           console.log(
-            `  Compressed: ${formatBytes(image.length)} → ${formatBytes(avifBuffer.length)} (${ratio}% reduction)`,
+            `  Compressed: ${formatBytes(image.length,)} → ${formatBytes(avifBuffer.length,)} (${ratio}% reduction)`,
           );
 
           return {
@@ -236,17 +235,17 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
             compressedSize: avifBuffer.length,
           };
         } catch (error) {
-          console.error(`  ✗ Failed to process ${name}: ${error.message}`);
+          console.error(`  ✗ Failed to process ${name}: ${error.message}`,);
           return {
             success: false,
             error: error.message,
           };
         }
-      }),
+      },)
     );
 
     // Process all textures in parallel with concurrency limit
-    const results = await Promise.allSettled(tasks);
+    const results = await Promise.allSettled(tasks,);
 
     // Aggregate statistics
     for (const result of results) {
@@ -262,30 +261,27 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
     // Calculate and display summary
     const endTime = Date.now();
     const elapsedMs = endTime - startTime;
-    const elapsedSeconds = (elapsedMs / 1000).toFixed(2);
-    const totalRatio =
-      totalOriginalSize > 0
-        ? ((1 - totalCompressedSize / totalOriginalSize) * 100).toFixed(1)
-        : 0;
+    const elapsedSeconds = (elapsedMs / 1000).toFixed(2,);
+    const totalRatio = totalOriginalSize > 0 ? ((1 - totalCompressedSize / totalOriginalSize) * 100).toFixed(1,) : 0;
 
-    console.log("\n========================================");
-    console.log("Texture Encoding Summary");
-    console.log("========================================");
-    console.log(`Textures processed: ${texturesProcessed}`);
-    console.log(`Total original size: ${formatBytes(totalOriginalSize)}`);
-    console.log(`Total compressed size: ${formatBytes(totalCompressedSize)}`);
-    console.log(`Total compression ratio: ${totalRatio}%`);
-    console.log(`Elapsed time: ${elapsedSeconds}s`);
-    console.log("========================================\n");
+    console.log("\n========================================",);
+    console.log("Texture Encoding Summary",);
+    console.log("========================================",);
+    console.log(`Textures processed: ${texturesProcessed}`,);
+    console.log(`Total original size: ${formatBytes(totalOriginalSize,)}`,);
+    console.log(`Total compressed size: ${formatBytes(totalCompressedSize,)}`,);
+    console.log(`Total compression ratio: ${totalRatio}%`,);
+    console.log(`Elapsed time: ${elapsedSeconds}s`,);
+    console.log("========================================\n",);
 
     if (debug && outDir) {
-      console.log(`Debug mode: Intermediate files kept in ${outDir}/`);
+      console.log(`Debug mode: Intermediate files kept in ${outDir}/`,);
     }
   } catch (error) {
     // Clean up on error if debug is not enabled
     if (!debug && outDir) {
       try {
-        await fs.rm(outDir, { recursive: true, force: true });
+        await fs.rm(outDir, { recursive: true, force: true, },);
       } catch (_cleanupError) {
         // Ignore cleanup errors
       }

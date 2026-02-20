@@ -1,23 +1,23 @@
-import { NodeIO } from "@gltf-transform/core";
+import { NodeIO, } from "@gltf-transform/core";
 import {
+  EXTMeshoptCompression,
   EXTTextureAVIF,
   EXTTextureWebP,
-  KHRTextureBasisu,
+  KHRDracoMeshCompression,
+  KHRLightsPunctual,
   KHRMaterialsClearcoat,
   KHRMaterialsIOR,
+  KHRMaterialsSheen,
   KHRMaterialsTransmission,
+  KHRMaterialsUnlit,
   KHRMaterialsVariants,
   KHRMaterialsVolume,
-  KHRMaterialsUnlit,
-  KHRMaterialsSheen,
-  KHRTextureTransform,
-  EXTMeshoptCompression,
   KHRMeshQuantization,
-  KHRLightsPunctual,
-  KHRDracoMeshCompression,
+  KHRTextureBasisu,
+  KHRTextureTransform,
 } from "@gltf-transform/extensions";
 
-import { MeshoptDecoder, MeshoptEncoder } from "meshoptimizer";
+import { MeshoptDecoder, MeshoptEncoder, } from "meshoptimizer";
 import draco3d from "draco3dgltf";
 
 /**
@@ -41,12 +41,12 @@ export async function createIO() {
     KHRMeshQuantization,
     KHRLightsPunctual,
     KHRDracoMeshCompression,
-  ]);
+  ],);
 
   io.registerDependencies({
     "meshopt.decoder": MeshoptDecoder,
     "meshopt.encoder": MeshoptEncoder,
-  });
+  },);
 
   const decoderModule = await draco3d.createDecoderModule();
   const encoderModule = await draco3d.createEncoderModule();
@@ -54,7 +54,7 @@ export async function createIO() {
   io.registerDependencies({
     "draco3d.decoder": decoderModule,
     "draco3d.encoder": encoderModule,
-  });
+  },);
 
   return io;
 }
@@ -64,9 +64,9 @@ export async function createIO() {
  * @param {string} path - Path to glTF/GLB file
  * @returns {Promise<import('@gltf-transform/core').Document>} glTF document
  */
-export async function readGLTF(path) {
+export async function readGLTF(path,) {
   const io = await createIO();
-  return io.read(path);
+  return io.read(path,);
 }
 
 /**
@@ -75,7 +75,7 @@ export async function readGLTF(path) {
  * @param {import('@gltf-transform/core').Document} doc - glTF document
  * @returns {Promise<void>}
  */
-export async function writeGLTF(path, doc) {
+export async function writeGLTF(path, doc,) {
   const io = await createIO();
-  await io.write(path, doc);
+  await io.write(path, doc,);
 }

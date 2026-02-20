@@ -1,18 +1,18 @@
-import { ImageUtils, TextureChannel } from "@gltf-transform/core";
+import { ImageUtils, TextureChannel, } from "@gltf-transform/core";
 
 /**
  * Format bytes to human-readable string
  * @param {number} bytes - Number of bytes
  * @returns {string} Formatted string (e.g., "1.5 MB")
  */
-export function formatBytes(bytes) {
+export function formatBytes(bytes,) {
   if (bytes === 0) return "0 B";
 
   const k = 1024;
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const units = ["B", "KB", "MB", "GB", "TB",];
+  const i = Math.floor(Math.log(bytes,) / Math.log(k,),);
 
-  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${units[i]}`;
+  return `${(bytes / Math.pow(k, i,)).toFixed(1,)} ${units[i]}`;
 }
 
 // This is prescribed by WebGPU.
@@ -29,19 +29,19 @@ const MIN_MIP_SIZE = 4;
  * @param {boolean} mipmaps - Whether to include mipmaps
  * @returns {number} Size in bytes
  */
-function computeTextureSize(w, h, blockSize, mipmaps) {
+function computeTextureSize(w, h, blockSize, mipmaps,) {
   let outputSize = 0;
 
   do {
-    const bw = Math.ceil(w / 4);
-    const bh = Math.ceil(h / 4);
-    const bytesPerRow = Math.ceil((bw * blockSize) / BYTES_PER_ROW_ALIGNMENT) * BYTES_PER_ROW_ALIGNMENT;
+    const bw = Math.ceil(w / 4,);
+    const bh = Math.ceil(h / 4,);
+    const bytesPerRow = Math.ceil((bw * blockSize) / BYTES_PER_ROW_ALIGNMENT,) * BYTES_PER_ROW_ALIGNMENT;
     const alignedSize = bh * bytesPerRow;
 
     outputSize += alignedSize;
 
-    w = Math.max(1, Math.floor(w / 2));
-    h = Math.max(1, Math.floor(h / 2));
+    w = Math.max(1, Math.floor(w / 2,),);
+    h = Math.max(1, Math.floor(h / 2,),);
   } while (mipmaps && (w >= MIN_MIP_SIZE || h >= MIN_MIP_SIZE));
 
   return outputSize;
@@ -57,10 +57,10 @@ function computeTextureSize(w, h, blockSize, mipmaps) {
  * @param {boolean} lowQuality - Whether to estimate for low quality
  * @returns {number} Estimated size in bytes
  */
-export function estimateCompressedSize(width, height, slots, channels, lowQuality) {
+export function estimateCompressedSize(width, height, slots, channels, lowQuality,) {
   // Align the dimensions to the block extents
-  const w = Math.ceil(width / 4) * 4;
-  const h = Math.ceil(height / 4) * 4;
+  const w = Math.ceil(width / 4,) * 4;
+  const h = Math.ceil(height / 4,) * 4;
 
   let blockSize = 16; // Assume 16 bytes (BC7/ASTC).
 
@@ -73,12 +73,12 @@ export function estimateCompressedSize(width, height, slots, channels, lowQualit
     // and textures with alpha.
     blockSize = 8;
 
-    if (slots.includes("normalTexture") || channels & TextureChannel.A) {
+    if (slots.includes("normalTexture",) || channels & TextureChannel.A) {
       blockSize = 16;
     }
   }
 
-  return computeTextureSize(w, h, blockSize, true);
+  return computeTextureSize(w, h, blockSize, true,);
 }
 
 /**
@@ -87,9 +87,9 @@ export function estimateCompressedSize(width, height, slots, channels, lowQualit
  * @param {string} mimeType - MIME type
  * @returns {[number, number]} Width and height
  */
-export function getDimensionsFromImageBytes(bytes, mimeType) {
-  const size = ImageUtils.getSize(bytes, mimeType);
-  return size ? [size[0], size[1]] : [0, 0];
+export function getDimensionsFromImageBytes(bytes, mimeType,) {
+  const size = ImageUtils.getSize(bytes, mimeType,);
+  return size ? [size[0], size[1],] : [0, 0,];
 }
 
 /**
@@ -99,7 +99,7 @@ export function getDimensionsFromImageBytes(bytes, mimeType) {
  * @param {string[]} slots - Texture slots
  * @returns {object} Texture info
  */
-export function getTextureInfo(texture, index, slots, channels) {
+export function getTextureInfo(texture, index, slots, channels,) {
   const image = texture.getImage();
   if (!image) return null;
 
@@ -107,17 +107,17 @@ export function getTextureInfo(texture, index, slots, channels) {
   const mimeType = texture.getMimeType();
   const size = image.length;
 
-  const [width, height] = getDimensionsFromImageBytes(image, mimeType);
+  const [width, height,] = getDimensionsFromImageBytes(image, mimeType,);
 
   // For KTX2 files, use actual VRAM calculation
   let videoMemorySize, videoMemorySizeLow, videoMemorySizeUncompressed;
   if (mimeType === "image/ktx2") {
-    videoMemorySize = ImageUtils.getVRAMByteLength(new Uint8Array(image), mimeType);
+    videoMemorySize = ImageUtils.getVRAMByteLength(new Uint8Array(image,), mimeType,);
     videoMemorySizeLow = videoMemorySize; // KTX2 is already compressed
     videoMemorySizeUncompressed = videoMemorySize; // Already in GPU format
   } else {
-    videoMemorySize = estimateCompressedSize(width, height, slots, channels, false);
-    videoMemorySizeLow = estimateCompressedSize(width, height, slots, channels, true);
+    videoMemorySize = estimateCompressedSize(width, height, slots, channels, false,);
+    videoMemorySizeLow = estimateCompressedSize(width, height, slots, channels, true,);
     videoMemorySizeUncompressed = width * height * 4;
   }
 

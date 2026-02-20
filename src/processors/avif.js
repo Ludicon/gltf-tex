@@ -2,9 +2,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import pLimit from "p-limit";
-import { run } from "../utils/process.js";
-import { getFileExt } from "../utils/file.js";
-import { formatBytes } from "../utils/texture-info.js";
+import { run, } from "../utils/process.js";
+import { getFileExt, } from "../utils/file.js";
+import { formatBytes, } from "../utils/texture-info.js";
 
 /**
  * Get AVIF encoding arguments based on texture usage
@@ -13,7 +13,7 @@ import { formatBytes } from "../utils/texture-info.js";
  * @param {number} speed - Encoding speed (0-10)
  * @returns {string[]} avifenc arguments
  */
-export function avifArgsForTexture(slots, quality, speed) {
+export function avifArgsForTexture(slots, quality, speed,) {
   // Encode normals using identity color transform.
   if (slots.length === 1 && slots[0] === "normalTexture") {
     return [
@@ -51,7 +51,7 @@ export function avifArgsForTexture(slots, quality, speed) {
   }
 
   // Encode ORM textures using identity color transform.
-  if (slots.includes("metallicRoughnessTexture")) {
+  if (slots.includes("metallicRoughnessTexture",)) {
     return [
       "-q",
       `${quality}`,
@@ -99,7 +99,7 @@ export function avifArgsForTexture(slots, quality, speed) {
  * @param {number} [options.matrixCoeffs] - Matrix coefficients (0-14)
  * @returns {string[]} blaze_enc arguments
  */
-export function blazeArgsForTexture(slots, quality, speed, options = {}) {
+export function blazeArgsForTexture(slots, quality, speed, options = {},) {
   const {
     qualityAlpha,
     tileRowsLog2,
@@ -118,7 +118,7 @@ export function blazeArgsForTexture(slots, quality, speed, options = {}) {
   if (slots.length === 1 && slots[0] === "normalTexture") {
     hint = "normal";
     tune = "ssim";
-  } else if (slots.includes("metallicRoughnessTexture")) {
+  } else if (slots.includes("metallicRoughnessTexture",)) {
     hint = "orm";
     tune = "ssim";
   } else {
@@ -149,37 +149,37 @@ export function blazeArgsForTexture(slots, quality, speed, options = {}) {
 
   // Add quality-alpha if specified (for non-normal textures, defaults to quality otherwise)
   if (qualityAlpha !== undefined) {
-    args.push("--quality-alpha", `${qualityAlpha}`);
+    args.push("--quality-alpha", `${qualityAlpha}`,);
   } else if (hint === "albedo") {
     // For albedo textures, default to using same quality for alpha
-    args.push("--quality-alpha", `${quality}`);
+    args.push("--quality-alpha", `${quality}`,);
   }
 
   // Add tile configuration
   if (tileRowsLog2 !== undefined) {
-    args.push("--tile-rows-log2", `${tileRowsLog2}`);
+    args.push("--tile-rows-log2", `${tileRowsLog2}`,);
   }
   if (tileColsLog2 !== undefined) {
-    args.push("--tile-cols-log2", `${tileColsLog2}`);
+    args.push("--tile-cols-log2", `${tileColsLog2}`,);
   }
   if (autoTiling !== undefined) {
-    args.push("--auto-tiling", autoTiling ? "1" : "0");
+    args.push("--auto-tiling", autoTiling ? "1" : "0",);
   }
 
   // Add bit depth option
   if (tenbit !== undefined) {
-    args.push("--tenbit", tenbit ? "1" : "0");
+    args.push("--tenbit", tenbit ? "1" : "0",);
   }
 
   // Add color space options
   if (colorPrimaries !== undefined) {
-    args.push("--color-primaries", `${colorPrimaries}`);
+    args.push("--color-primaries", `${colorPrimaries}`,);
   }
   if (transferCharacteristics !== undefined) {
-    args.push("--transfer-characteristics", `${transferCharacteristics}`);
+    args.push("--transfer-characteristics", `${transferCharacteristics}`,);
   }
   if (matrixCoeffs !== undefined) {
-    args.push("--matrix-coeffs", `${matrixCoeffs}`);
+    args.push("--matrix-coeffs", `${matrixCoeffs}`,);
   }
 
   return args;
@@ -191,8 +191,8 @@ export function blazeArgsForTexture(slots, quality, speed, options = {}) {
  * @param {string} outPath - Output PNG file path
  * @returns {Promise<void>}
  */
-export async function decodeWebpTexture(inPath, outPath) {
-  await run("dwebp", [inPath, "-o", outPath]);
+export async function decodeWebpTexture(inPath, outPath,) {
+  await run("dwebp", [inPath, "-o", outPath,],);
 }
 
 /**
@@ -202,13 +202,13 @@ export async function decodeWebpTexture(inPath, outPath) {
  * @param {string} extension - Input file extension
  * @returns {Promise<void>}
  */
-async function convertToPNG(inPath, outPath, extension) {
+async function convertToPNG(inPath, outPath, extension,) {
   if (extension === ".webp") {
-    await run("dwebp", [inPath, "-o", outPath]);
+    await run("dwebp", [inPath, "-o", outPath,],);
   } else if (extension === ".jpg" || extension === ".jpeg") {
-    await run("magick", [inPath, outPath]);
+    await run("magick", [inPath, outPath,],);
   } else {
-    await run("magick", [inPath, outPath]);
+    await run("magick", [inPath, outPath,],);
   }
 }
 
@@ -228,27 +228,38 @@ export async function processTextureAVIF(
   quality,
   speed,
 ) {
-  const args = avifArgsForTexture(slots, quality, speed);
+  const args = avifArgsForTexture(slots, quality, speed,);
 
   if (slots.length === 1 && slots[0] === "normalTexture") {
     // Normalize normals and clear Z component.
-    const tmpPath = inPath.replace(/\.[^.]+$/, "-tmp.png");
+    const tmpPath = inPath.replace(/\.[^.]+$/, "-tmp.png",);
 
     // prettier-ignore
     await run("magick", [
       `${inPath}`,
-      "-channel", "R", "-fx", 'nx=(r-0.5)*2; ny=(g-0.5)*2; nz=(b-0.5)*2; len=sqrt(max(0, nx*nx+ny*ny+nz*nz)); len=max(len,1e-6); nx/len/2+0.5',
-      "-channel", "G", "-fx", 'nx=(r-0.5)*2; ny=(g-0.5)*2; nz=(b-0.5)*2; len=sqrt(max(0, nx*nx+ny*ny+nz*nz)); len=max(len,1e-6); ny/len/2+0.5',
-      "-channel", "B", "-evaluate", "set", "0", "+channel",
+      "-channel",
+      "R",
+      "-fx",
+      "nx=(r-0.5)*2; ny=(g-0.5)*2; nz=(b-0.5)*2; len=sqrt(max(0, nx*nx+ny*ny+nz*nz)); len=max(len,1e-6); nx/len/2+0.5",
+      "-channel",
+      "G",
+      "-fx",
+      "nx=(r-0.5)*2; ny=(g-0.5)*2; nz=(b-0.5)*2; len=sqrt(max(0, nx*nx+ny*ny+nz*nz)); len=max(len,1e-6); ny/len/2+0.5",
+      "-channel",
+      "B",
+      "-evaluate",
+      "set",
+      "0",
+      "+channel",
       tmpPath,
-    ]);
+    ],);
 
-    await run("avifenc", [...args, tmpPath, outPath]);
+    await run("avifenc", [...args, tmpPath, outPath,],);
 
     // Clean up temporary file.
-    await run("rm", [tmpPath]);
+    await run("rm", [tmpPath,],);
   } else {
-    await run("avifenc", [...args, inPath, outPath]);
+    await run("avifenc", [...args, inPath, outPath,],);
   }
 }
 
@@ -281,13 +292,12 @@ export async function processTextureBlaze(
   speed,
   options = {},
 ) {
-  const { maxThreads } = options;
+  const { maxThreads, } = options;
 
-  const args = blazeArgsForTexture(slots, quality, speed, options);
+  const args = blazeArgsForTexture(slots, quality, speed, options,);
 
   // Determine thread count
-  const threadCount =
-    maxThreads !== undefined ? maxThreads : os.availableParallelism();
+  const threadCount = maxThreads !== undefined ? maxThreads : os.availableParallelism();
 
   await run("blaze_enc", [
     "--max-threads",
@@ -295,7 +305,7 @@ export async function processTextureBlaze(
     ...args,
     inPath,
     outPath,
-  ]);
+  ],);
 }
 
 /**
@@ -321,7 +331,7 @@ export async function processTextureBlaze(
  * @param {number} [options.matrixCoeffs] - Matrix coefficients (0-14) [Blaze only]
  * @returns {Promise<void>}
  */
-export async function processTexturesAVIF(doc, inputPath, options) {
+export async function processTexturesAVIF(doc, inputPath, options,) {
   const {
     quality = 80,
     speed = 4,
@@ -340,19 +350,19 @@ export async function processTexturesAVIF(doc, inputPath, options) {
     transferCharacteristics,
     matrixCoeffs,
   } = options;
-  const { EXTTextureAVIF } = await import("@gltf-transform/extensions");
-  const { listTextureSlots } = await import("@gltf-transform/functions");
+  const { EXTTextureAVIF, } = await import("@gltf-transform/extensions");
+  const { listTextureSlots, } = await import("@gltf-transform/functions");
 
   // Create extension and set it as required
-  doc.createExtension(EXTTextureAVIF).setRequired(true);
+  doc.createExtension(EXTTextureAVIF,).setRequired(true,);
 
   const root = doc.getRoot();
   const textures = root.listTextures();
 
-  const outDir = path.parse(inputPath).name;
+  const outDir = path.parse(inputPath,).name;
 
   // Ensure output directory exists
-  await fs.mkdir(outDir, { recursive: true });
+  await fs.mkdir(outDir, { recursive: true, },);
 
   // Statistics tracking
   const startTime = Date.now();
@@ -368,22 +378,22 @@ export async function processTexturesAVIF(doc, inputPath, options) {
 
   try {
     // Set up concurrency limiter
-    const limit = pLimit(concurrency);
+    const limit = pLimit(concurrency,);
 
     // Create processing tasks for all textures
-    const tasks = textures.map((tex, i) =>
+    const tasks = textures.map((tex, i,) =>
       limit(async () => {
         const image = tex.getImage();
         if (!image) return null;
 
         const name = tex.getName() || `tex_${i}`;
-        const extension = getFileExt(tex.getMimeType());
-        let inPath = path.join(outDir, `${name}${extension}`);
-        const outPath = path.join(outDir, `${name}.avif`);
+        const extension = getFileExt(tex.getMimeType(),);
+        let inPath = path.join(outDir, `${name}${extension}`,);
+        const outPath = path.join(outDir, `${name}.avif`,);
 
-        const slots = listTextureSlots(tex);
+        const slots = listTextureSlots(tex,);
 
-        await fs.writeFile(inPath, image);
+        await fs.writeFile(inPath, image,);
 
         const currentCount = ++completedCount;
         console.log(
@@ -396,12 +406,12 @@ export async function processTexturesAVIF(doc, inputPath, options) {
         try {
           // Convert to PNG if using Blaze or if WebP
           if (blaze && extension !== ".png") {
-            const pngPath = path.join(outDir, `${name}.png`);
-            await convertToPNG(inPath, pngPath, extension);
+            const pngPath = path.join(outDir, `${name}.png`,);
+            await convertToPNG(inPath, pngPath, extension,);
             inPath = pngPath;
           } else if (!blaze && extension === ".webp") {
-            const tmpPath = path.join(outDir, `${name}-tmp.png`);
-            await decodeWebpTexture(inPath, tmpPath);
+            const tmpPath = path.join(outDir, `${name}-tmp.png`,);
+            await decodeWebpTexture(inPath, tmpPath,);
             inPath = tmpPath;
           }
 
@@ -419,21 +429,21 @@ export async function processTexturesAVIF(doc, inputPath, options) {
               colorPrimaries,
               transferCharacteristics,
               matrixCoeffs,
-            });
+            },);
           } else {
-            await processTextureAVIF(inPath, outPath, slots, quality, speed);
+            await processTextureAVIF(inPath, outPath, slots, quality, speed,);
           }
 
-          tex.setMimeType("image/avif");
+          tex.setMimeType("image/avif",);
 
-          const avifBytes = await fs.readFile(outPath);
-          tex.setImage(avifBytes);
+          const avifBytes = await fs.readFile(outPath,);
+          tex.setImage(avifBytes,);
 
           // Display compression stats
           const compressedSize = avifBytes.length;
-          const ratio = ((1 - compressedSize / originalSize) * 100).toFixed(1);
+          const ratio = ((1 - compressedSize / originalSize) * 100).toFixed(1,);
           console.log(
-            `  Compressed: ${formatBytes(originalSize)} → ${formatBytes(compressedSize)} (${ratio}% reduction)`,
+            `  Compressed: ${formatBytes(originalSize,)} → ${formatBytes(compressedSize,)} (${ratio}% reduction)`,
           );
 
           return {
@@ -442,17 +452,17 @@ export async function processTexturesAVIF(doc, inputPath, options) {
             compressedSize,
           };
         } catch (error) {
-          console.error(`  ✗ Failed to process ${name}: ${error.message}`);
+          console.error(`  ✗ Failed to process ${name}: ${error.message}`,);
           return {
             success: false,
             error: error.message,
           };
         }
-      }),
+      },)
     );
 
     // Process all textures in parallel with concurrency limit
-    const results = await Promise.allSettled(tasks);
+    const results = await Promise.allSettled(tasks,);
 
     // Aggregate statistics
     for (const result of results) {
@@ -468,33 +478,30 @@ export async function processTexturesAVIF(doc, inputPath, options) {
     // Calculate and display summary
     const endTime = Date.now();
     const elapsedMs = endTime - startTime;
-    const elapsedSeconds = (elapsedMs / 1000).toFixed(2);
-    const totalRatio =
-      totalOriginalSize > 0
-        ? ((1 - totalCompressedSize / totalOriginalSize) * 100).toFixed(1)
-        : 0;
+    const elapsedSeconds = (elapsedMs / 1000).toFixed(2,);
+    const totalRatio = totalOriginalSize > 0 ? ((1 - totalCompressedSize / totalOriginalSize) * 100).toFixed(1,) : 0;
 
-    console.log("\n========================================");
-    console.log("Texture Encoding Summary");
-    console.log("========================================");
-    console.log(`Textures processed: ${texturesProcessed}`);
-    console.log(`Total original size: ${formatBytes(totalOriginalSize)}`);
-    console.log(`Total compressed size: ${formatBytes(totalCompressedSize)}`);
-    console.log(`Total compression ratio: ${totalRatio}%`);
-    console.log(`Elapsed time: ${elapsedSeconds}s`);
-    console.log("========================================\n");
+    console.log("\n========================================",);
+    console.log("Texture Encoding Summary",);
+    console.log("========================================",);
+    console.log(`Textures processed: ${texturesProcessed}`,);
+    console.log(`Total original size: ${formatBytes(totalOriginalSize,)}`,);
+    console.log(`Total compressed size: ${formatBytes(totalCompressedSize,)}`,);
+    console.log(`Total compression ratio: ${totalRatio}%`,);
+    console.log(`Elapsed time: ${elapsedSeconds}s`,);
+    console.log("========================================\n",);
   } finally {
     // Cleanup intermediate files unless debug mode is enabled
     if (!debug) {
       try {
-        await fs.rm(outDir, { recursive: true, force: true });
+        await fs.rm(outDir, { recursive: true, force: true, },);
       } catch (error) {
         console.warn(
           `Warning: Failed to clean up directory ${outDir}: ${error.message}`,
         );
       }
     } else {
-      console.log(`Debug mode: Intermediate files kept in ${outDir}/`);
+      console.log(`Debug mode: Intermediate files kept in ${outDir}/`,);
     }
   }
 }

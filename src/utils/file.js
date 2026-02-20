@@ -3,7 +3,7 @@
  * @param {string} mimeType - MIME type
  * @returns {string} File extension with leading dot
  */
-export function getFileExt(mimeType) {
+export function getFileExt(mimeType,) {
   if (mimeType === "image/png") return ".png";
   if (mimeType === "image/jpeg") return ".jpg";
   if (mimeType === "image/webp") return ".webp";
@@ -16,9 +16,9 @@ export function getFileExt(mimeType) {
  * @param {string} filePath - File path
  * @returns {Promise<void>}
  */
-export async function ensureDir(filePath) {
-  const { mkdir } = await import("node:fs/promises");
-  const { dirname } = await import("node:path");
-  const dir = dirname(filePath);
-  await mkdir(dir, { recursive: true });
+export async function ensureDir(filePath,) {
+  const { mkdir, } = await import("node:fs/promises");
+  const { dirname, } = await import("node:path");
+  const dir = dirname(filePath,);
+  await mkdir(dir, { recursive: true, },);
 }
