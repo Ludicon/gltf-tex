@@ -1,4 +1,5 @@
 import { parseArgs } from "../utils/args.js";
+import process from "node:process";
 
 /**
  * WebP command - Compress textures using WebP format

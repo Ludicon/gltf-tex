@@ -1,10 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import os from "node:os";
+
 import sharp from "sharp";
 import pLimit from "p-limit";
 import { getFileExt } from "../utils/file.js";
 import { formatBytes } from "../utils/texture-info.js";
+import { Buffer } from "node:buffer";
 
 /**
  * Get AVIF encoding options based on texture usage
@@ -62,7 +63,7 @@ export function avifOptionsForTexture(slots, quality, speed) {
 async function normalizeNormalMap(imageBuffer) {
   // Read the image and ensure RGBA
   const image = sharp(imageBuffer).ensureAlpha();
-  const { width, height, channels } = await image.metadata();
+  const { width, height, channels: _channels } = await image.metadata();
 
   // Get raw pixel data as RGBA
   const { data, info } = await image
@@ -108,18 +109,6 @@ async function normalizeNormalMap(imageBuffer) {
 }
 
 /**
- * Convert image to grayscale using red channel
- * @param {Buffer} imageBuffer - Input image buffer
- * @returns {Promise<Buffer>} Grayscale image buffer
- */
-async function convertToGrayscale(imageBuffer) {
-  return sharp(imageBuffer)
-    .extractChannel("red")
-    .toColourspace("b-w")
-    .toBuffer();
-}
-
-/**
  * Process a texture and encode it as AVIF using sharp
  * @param {Buffer} imageBuffer - Input image buffer
  * @param {string[]} slots - Texture slots
@@ -141,10 +130,7 @@ export async function processTextureAVIFSharp(
   if (slots.length === 1 && slots[0] === "normalTexture") {
     processedBuffer = await normalizeNormalMap(imageBuffer);
   }
-  // Special processing for occlusion maps (disabled for now to match original)
-  else if (false && slots.length === 1 && slots[0] === "occlusionTexture") {
-    processedBuffer = await convertToGrayscale(imageBuffer);
-  }
+
 
   // Encode as AVIF
   return sharp(processedBuffer).avif(options).toBuffer();
@@ -167,7 +153,7 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
   const { listTextureSlots } = await import("@gltf-transform/functions");
 
   // Create extension and set it as required
-  const avifExt = doc.createExtension(EXTTextureAVIF).setRequired(true);
+  doc.createExtension(EXTTextureAVIF).setRequired(true);
 
   const root = doc.getRoot();
   const textures = root.listTextures();
@@ -300,7 +286,7 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
     if (!debug && outDir) {
       try {
         await fs.rm(outDir, { recursive: true, force: true });
-      } catch (cleanupError) {
+      } catch (_cleanupError) {
         // Ignore cleanup errors
       }
     }

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import sharp from "sharp";
 import { formatBytes } from "../utils/texture-info.js";
+import { Buffer } from "node:buffer";
 
 /**
  * Create a hash of image pixel data

@@ -247,27 +247,6 @@ export async function processTextureAVIF(
 
     // Clean up temporary file.
     await run("rm", [tmpPath]);
-  } else if (false && slots.length === 1 && slots[0] === "occlusionTexture") {
-    // Note: This is disabled for now as it shifts occlusion values
-    // Replicate R channel across RGB:
-    const tmpPath = inPath.replace(/\.[^.]+$/, "-tmp.png");
-
-    await run("magick", [
-      `${inPath}`,
-      "-channel",
-      "R",
-      "-separate",
-      "-set",
-      "colorspace",
-      "RGB",
-      "-combine",
-      tmpPath,
-    ]);
-
-    await run("avifenc", [...args, tmpPath, outPath]);
-
-    // Clean up temporary file.
-    await run("rm", [tmpPath]);
   } else {
     await run("avifenc", [...args, inPath, outPath]);
   }
@@ -365,7 +344,7 @@ export async function processTexturesAVIF(doc, inputPath, options) {
   const { listTextureSlots } = await import("@gltf-transform/functions");
 
   // Create extension and set it as required
-  const avifExt = doc.createExtension(EXTTextureAVIF).setRequired(true);
+  doc.createExtension(EXTTextureAVIF).setRequired(true);
 
   const root = doc.getRoot();
   const textures = root.listTextures();

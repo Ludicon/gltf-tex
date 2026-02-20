@@ -1,3 +1,4 @@
+import process from "node:process";
 export function helpCommand(args) {
   const commandName = args[0];
 

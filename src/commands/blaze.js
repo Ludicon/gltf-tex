@@ -1,6 +1,7 @@
 import { parseArgs, validateRange } from "../utils/args.js";
 import { readGLTF, writeGLTF } from "../utils/io.js";
 import { processTexturesAVIF } from "../processors/avif.js";
+import process from "node:process";
 
 /**
  * Blaze command - Compress textures using Blaze AVIF encoder

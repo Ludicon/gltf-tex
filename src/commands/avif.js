@@ -2,6 +2,7 @@ import { parseArgs, validateRange } from "../utils/args.js";
 import { readGLTF, writeGLTF } from "../utils/io.js";
 import { processTexturesAVIF } from "../processors/avif.js";
 import { processTexturesAVIFSharp } from "../processors/avif-sharp.js";
+import process from "node:process";
 
 /**
  * AVIF command - Compress textures using AVIF format

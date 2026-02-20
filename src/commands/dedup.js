@@ -1,6 +1,7 @@
 import { parseArgs } from "../utils/args.js";
 import { readGLTF, writeGLTF } from "../utils/io.js";
 import { dedupTextures } from "../processors/dedup.js";
+import process from "node:process";
 
 /**
  * Dedup command - Remove duplicate textures
@@ -53,7 +54,7 @@ export async function dedupCommand(args) {
     const doc = await readGLTF(inputPath);
 
     // Remove duplicate textures
-    const stats = await dedupTextures(doc, {
+    const _stats = await dedupTextures(doc, {
       verbose: options.verbose,
     });
 

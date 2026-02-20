@@ -1,8 +1,8 @@
-import { text } from "stream/consumers";
 import { parseArgs } from "../utils/args.js";
 import { readGLTF } from "../utils/io.js";
 import { getTextureInfo, formatBytes } from "../utils/texture-info.js";
 import { listTextureSlots, getTextureChannelMask } from "@gltf-transform/functions";
+import process from "node:process";
 
 /**
  * Size command - Display texture size information in a glTF model
@@ -65,7 +65,7 @@ export async function sizeCommand(args) {
 
       if (!info) continue;
 
-      let mimeType = tex.getMimeType();
+      const mimeType = tex.getMimeType();
 
       totalSize += info.size;
       if (mimeType == "image/ktx2") {

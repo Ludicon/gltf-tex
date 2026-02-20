@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -12,6 +12,7 @@ import { blazeCommand } from "../src/commands/blaze.js";
 import { webpCommand } from "../src/commands/webp.js";
 import { sizeCommand } from "../src/commands/size.js";
 import { dedupCommand } from "../src/commands/dedup.js";
+import process from "node:process";
 
 const commands = {
   help: helpCommand,
