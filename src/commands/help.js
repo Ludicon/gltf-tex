@@ -1,4 +1,18 @@
-export function helpCommand(args) {
+let _version = null;
+
+async function getVersion() {
+  if (!_version) {
+    const { readFile } = await import("node:fs/promises");
+    const { dirname, join } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const pkg = JSON.parse(await readFile(join(__dirname, "..", "..", "package.json"), "utf8"));
+    _version = pkg.version;
+  }
+  return _version;
+}
+
+export async function helpCommand(args) {
   const commandName = args[0];
 
   if (commandName) {
@@ -6,13 +20,14 @@ export function helpCommand(args) {
     showCommandHelp(commandName);
   } else {
     // Show general help
-    showGeneralHelp();
+    const version = await getVersion();
+    showGeneralHelp(version);
   }
 }
 
-function showGeneralHelp() {
+function showGeneralHelp(version) {
   console.log(`
-gltf-tex - Command-line tool for processing textures in glTF models
+gltf-tex v${version} - Command-line tool for processing textures in glTF models
 
 USAGE:
   gltf-tex <command> [options]

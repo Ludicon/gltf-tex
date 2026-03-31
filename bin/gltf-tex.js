@@ -24,9 +24,17 @@ async function main() {
   const args = process.argv.slice(2);
   const commandName = args[0];
 
+  // Show version
+  if (commandName === "-v" || commandName === "--version") {
+    const { readFile } = await import("node:fs/promises");
+    const pkg = JSON.parse(await readFile(join(__dirname, "..", "package.json"), "utf8"));
+    console.log(`gltf-tex v${pkg.version}`);
+    return;
+  }
+
   // If no command or help command, show help
   if (!commandName || commandName === "help") {
-    helpCommand(args.slice(1));
+    await helpCommand(args.slice(1));
     return;
   }
 

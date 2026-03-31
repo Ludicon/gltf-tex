@@ -21,7 +21,7 @@ export async function avifCommand(args) {
   // Show help if requested
   if (options.help) {
     const { helpCommand } = await import("./help.js");
-    helpCommand(["avif"]);
+    await helpCommand(["avif"]);
     return;
   }
 
