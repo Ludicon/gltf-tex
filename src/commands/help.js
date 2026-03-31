@@ -208,6 +208,7 @@ ARGUMENTS:
   [output]          Output glTF/GLB file path (default: <input>-pbr.<ext>)
 
 OPTIONS:
+  --exact           Bake glossinessFactor into MR textures for exact results
   -h, --help        Show this help message
 
 DESCRIPTION:
@@ -227,9 +228,18 @@ DESCRIPTION:
     a metallicRoughness texture is generated with roughness in the G channel.
     The new texture is placed alongside the original with a _mr suffix.
 
+  By default, the MR texture stores inverted glossiness (1 - alpha) and the
+  glossinessFactor is applied via roughnessFactor. This allows sharing one MR
+  texture across materials with different glossiness factors.
+
+  With --exact, the glossinessFactor is baked into each MR texture for exact
+  results, which may produce multiple MR textures for the same source texture
+  when materials use different glossiness factors.
+
 EXAMPLES:
   gltf-tex convert-pbr scene.gltf
   gltf-tex convert-pbr scene.gltf scene-converted.gltf
+  gltf-tex convert-pbr scene.gltf --exact
 `,
   };
 

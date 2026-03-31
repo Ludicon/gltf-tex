@@ -36,14 +36,14 @@ async function analyzeAlpha(imageBuffer, tolerance = 8) {
 }
 
 /**
- * Generate a metallicRoughness texture from a specularGlossiness texture.
- * Output: R=0, G=roughness, B=0 (metallic=0).
- * roughness = 1 - glossinessFactor * glossinessAlpha
+ * Generate a metallicRoughness texture from a specularGlossiness texture (exact mode).
+ * Bakes glossinessFactor into the texture: G = 1 - glossinessFactor * alpha.
+ * Produces exact results but requires a separate texture per glossinessFactor value.
  * @param {Uint8Array|Buffer} sgBuffer - specularGlossiness image data
  * @param {number} glossinessFactor - glossiness scalar factor
  * @returns {Promise<Buffer>} PNG-encoded metallicRoughness image
  */
-async function generateMetallicRoughnessTexture(sgBuffer, glossinessFactor) {
+async function generateMetallicRoughnessTextureExact(sgBuffer, glossinessFactor) {
   const { data, info } = await sharp(sgBuffer)
     .ensureAlpha()
     .raw()
@@ -56,10 +56,38 @@ async function generateMetallicRoughnessTexture(sgBuffer, glossinessFactor) {
     const px = (i / channels) * 4;
     const alpha = data[i + 3] / 255;
     const roughness = 1.0 - glossinessFactor * alpha;
-    out[px + 0] = 0; // R: unused
-    out[px + 1] = Math.round(Math.max(0, Math.min(1, roughness)) * 255); // G: roughness
-    out[px + 2] = 0; // B: metallic = 0
-    out[px + 3] = 255; // A: opaque
+    out[px + 0] = 0;
+    out[px + 1] = Math.round(Math.max(0, Math.min(1, roughness)) * 255);
+    out[px + 2] = 0;
+    out[px + 3] = 255;
+  }
+
+  return sharp(out, { raw: { width, height, channels: 4 } }).png().toBuffer();
+}
+
+/**
+ * Generate a metallicRoughness texture from a specularGlossiness texture.
+ * Output: R=0, G=1-alpha (inverted glossiness), B=0 (metallic=0).
+ * The glossinessFactor is NOT baked in — it becomes roughnessFactor on the material,
+ * so a single MR texture can be shared across materials with different factors.
+ * @param {Uint8Array|Buffer} sgBuffer - specularGlossiness image data
+ * @returns {Promise<Buffer>} PNG-encoded metallicRoughness image
+ */
+async function generateMetallicRoughnessTexture(sgBuffer) {
+  const { data, info } = await sharp(sgBuffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const { width, height, channels } = info;
+  const out = Buffer.alloc(width * height * 4);
+
+  for (let i = 0; i < data.length; i += channels) {
+    const px = (i / channels) * 4;
+    out[px + 0] = 0;                   // R: unused
+    out[px + 1] = 255 - data[i + 3];   // G: roughness = 1 - glossiness
+    out[px + 2] = 0;                   // B: metallic = 0
+    out[px + 3] = 255;                 // A: opaque
   }
 
   return sharp(out, { raw: { width, height, channels: 4 } }).png().toBuffer();
@@ -70,9 +98,14 @@ async function generateMetallicRoughnessTexture(sgBuffer, glossinessFactor) {
  * standard metallicRoughness + KHR_materials_specular.
  *
  * @param {import('@gltf-transform/core').Document} doc
+ * @param {object} [options]
+ * @param {boolean} [options.exact=false] - Bake glossinessFactor into MR textures for exact results.
+ *   Produces one MR texture per (specGlossTexture, glossinessFactor) pair.
+ *   Default mode shares one MR texture per specGlossTexture and uses roughnessFactor for the scalar.
  * @returns {Promise<{ converted: number, texturesGenerated: number }>}
  */
-export async function convertSpecGlossToMetalRough(doc) {
+export async function convertSpecGlossToMetalRough(doc, options = {}) {
+  const { exact = false } = options;
   const {
     KHRMaterialsPBRSpecularGlossiness,
     KHRMaterialsSpecular,
@@ -87,12 +120,12 @@ export async function convertSpecGlossToMetalRough(doc) {
   let converted = 0;
   let texturesGenerated = 0;
 
-  // Cache generated MR textures to reuse when multiple materials share the
-  // same specGloss texture + glossinessFactor combination.
+  // Cache generated MR textures.
+  // Default mode: keyed by source Texture object (one per texture).
+  // Exact mode: keyed by "uri:glossinessFactor" (one per texture+factor pair).
   const mrCache = new Map();
-  // Track assigned URIs to avoid collisions when the same source texture is
-  // used with different glossinessFactor values.
-  const usedMRUris = new Map(); // baseMRUri -> count
+  // Track assigned URIs in exact mode to avoid collisions.
+  const usedMRUris = new Map();
 
   for (const mat of materials) {
     const sg = mat.getExtension("KHR_materials_pbrSpecularGlossiness");
@@ -127,17 +160,16 @@ export async function convertSpecGlossToMetalRough(doc) {
     }
 
     if (needsMRTexture) {
-      // Check cache: same source texture + same glossinessFactor → reuse MR texture
-      const cacheKey = `${sgTex.getName() || sgTex.getURI()}:${glossinessFactor}`;
+      const cacheKey = exact
+        ? `${sgTex.getName() || sgTex.getURI()}:${glossinessFactor}`
+        : sgTex;
       let mrTex = mrCache.get(cacheKey);
 
       if (!mrTex) {
-        // Generate metallicRoughness texture from the specGloss texture's alpha
         const sgImage = sgTex.getImage();
-        const mrBuffer = await generateMetallicRoughnessTexture(
-          sgImage,
-          glossinessFactor,
-        );
+        const mrBuffer = exact
+          ? await generateMetallicRoughnessTextureExact(sgImage, glossinessFactor)
+          : await generateMetallicRoughnessTexture(sgImage);
 
         mrTex = doc.createTexture();
         mrTex.setImage(mrBuffer);
@@ -149,13 +181,14 @@ export async function convertSpecGlossToMetalRough(doc) {
           const base = path.basename(sgUri, path.extname(sgUri));
           const baseMRUri = path.join(dir, `${base}_mr.png`).replace(/\\/g, "/");
 
-          // Deduplicate URI if the same source texture is used with different factors
           let mrUri = baseMRUri;
-          const count = usedMRUris.get(baseMRUri) || 0;
-          if (count > 0) {
-            mrUri = path.join(dir, `${base}_mr${count + 1}.png`).replace(/\\/g, "/");
+          if (exact) {
+            const count = usedMRUris.get(baseMRUri) || 0;
+            if (count > 0) {
+              mrUri = path.join(dir, `${base}_mr${count + 1}.png`).replace(/\\/g, "/");
+            }
+            usedMRUris.set(baseMRUri, count + 1);
           }
-          usedMRUris.set(baseMRUri, count + 1);
 
           mrTex.setURI(mrUri);
         }
@@ -169,7 +202,7 @@ export async function convertSpecGlossToMetalRough(doc) {
       }
 
       mat.setMetallicRoughnessTexture(mrTex);
-      mat.setRoughnessFactor(1.0);
+      mat.setRoughnessFactor(exact ? 1.0 : glossinessFactor);
     } else {
       // No texture needed — alpha is constant, so use a scalar roughness.
       // roughness = 1 - glossinessFactor * meanAlpha
