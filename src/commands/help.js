@@ -38,6 +38,7 @@ COMMANDS:
   webp              Compress textures using WebP format
   size              Display texture size information in a glTF model
   dedup             Remove duplicate textures based on pixel data
+  convert-pbr       Convert specular/glossiness materials to metallic/roughness
 
 OPTIONS:
   -h, --help        Show help for a specific command
@@ -68,6 +69,7 @@ OPTIONS:
   --quality <0-100>   Quality level for compression (default: 80)
   --speed <0-10>      Encoding speed: 0=slowest, 10=fastest (default: 4)
   --concurrency <1-32> Number of textures to process in parallel (default: 4)
+  --keep              Keep original images, add AVIF as extension (.gltf only)
   --blaze             Use blaze_enc instead of avifenc (experimental)
   --debug             Keep intermediate files for debugging
   -h, --help          Show this help message
@@ -80,6 +82,15 @@ DESCRIPTION:
   - Metallic/Roughness: Identity color transform, SSIM tuning
   - Base color/Emissive: YUV 4:4:4, IQ tuning
 
+  By default, original images are replaced with AVIF. Use --keep to preserve
+  the original images (PNG/JPEG) and add AVIF as an EXT_texture_avif extension
+  reference. This provides a fallback for clients that don't support AVIF.
+  The --keep option is only supported for .gltf output (not .glb).
+
+  Textures with alternative format extensions (e.g. MSFT_texture_dds) are
+  handled automatically: only the primary image (PNG/JPEG) is compressed,
+  and the alternative format references are stripped from the output.
+
   Requires external tools: avifenc, imagemagick, dwebp (see installation guide).
 
   Advanced options:
@@ -91,6 +102,7 @@ DESCRIPTION:
 EXAMPLES:
   gltf-tex avif model.glb
   gltf-tex avif model.glb output.glb --quality 90 --speed 2
+  gltf-tex avif scene.gltf --keep
   gltf-tex avif model.glb --blaze
   gltf-tex avif model.glb --debug
   gltf-tex avif model.glb --concurrency 8
@@ -125,6 +137,7 @@ ARGUMENTS:
   <input>           Input glTF/GLB file path
 
 OPTIONS:
+  --dds             Prefer DDS source when a texture has multiple sources
   -h, --help        Show this help message
 
 DESCRIPTION:
@@ -137,8 +150,13 @@ DESCRIPTION:
     * Low quality: Lower bit-rate compression with mipmaps
     * Uncompressed: Raw RGBA without mipmaps
 
+  When a texture has multiple sources (e.g. PNG + DDS via MSFT_texture_dds),
+  only the preferred source is counted. By default the standard source (PNG/JPEG)
+  is used. Pass --dds to report sizes using the DDS source instead.
+
 EXAMPLES:
   gltf-tex size model.glb
+  gltf-tex size scene.gltf --dds
   gltf-tex size assets/FlightHelmet.glb
 `,
     dedup: `
@@ -178,6 +196,40 @@ EXAMPLES:
   gltf-tex dedup model.glb
   gltf-tex dedup model.glb output.glb
   gltf-tex dedup model.glb --verbose
+`,
+    "convert-pbr": `
+gltf-tex convert-pbr - Convert specular/glossiness materials to metallic/roughness
+
+USAGE:
+  gltf-tex convert-pbr <input> [output] [options]
+
+ARGUMENTS:
+  <input>           Input glTF/GLB file path
+  [output]          Output glTF/GLB file path (default: <input>-pbr.<ext>)
+
+OPTIONS:
+  -h, --help        Show this help message
+
+DESCRIPTION:
+  Converts materials using the deprecated KHR_materials_pbrSpecularGlossiness
+  extension to the standard metallic/roughness workflow with KHR_materials_specular.
+
+  The conversion works as follows:
+  - diffuseTexture/Factor  -> baseColorTexture/Factor
+  - specularFactor         -> KHR_materials_specular.specularColorFactor
+  - specularGlossinessTexture (RGB) -> KHR_materials_specular.specularColorTexture
+  - metallicFactor is set to 0
+
+  For roughness (derived from glossiness):
+  - If the specularGlossiness texture has constant alpha (or no texture),
+    roughnessFactor is set to 1 - glossinessFactor. No new texture is generated.
+  - If the specularGlossiness texture has varying alpha (per-pixel glossiness),
+    a metallicRoughness texture is generated with roughness in the G channel.
+    The new texture is placed alongside the original with a _mr suffix.
+
+EXAMPLES:
+  gltf-tex convert-pbr scene.gltf
+  gltf-tex convert-pbr scene.gltf scene-converted.gltf
 `,
   };
 

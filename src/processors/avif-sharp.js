@@ -3,6 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import sharp from "sharp";
 import pLimit from "p-limit";
+import { TextureChannel } from "@gltf-transform/core";
 import { getFileExt } from "../utils/file.js";
 import { formatBytes } from "../utils/texture-info.js";
 
@@ -151,6 +152,19 @@ export async function processTextureAVIFSharp(
 }
 
 /**
+ * Check if a texture's MIME type is processable (PNG, JPEG, or WebP).
+ * @param {string} mimeType - Texture MIME type
+ * @returns {boolean}
+ */
+function isProcessableMimeType(mimeType) {
+  return (
+    mimeType === "image/png" ||
+    mimeType === "image/jpeg" ||
+    mimeType === "image/webp"
+  );
+}
+
+/**
  * Process all textures in a glTF document with AVIF encoding using sharp
  * @param {import('@gltf-transform/core').Document} doc - glTF document
  * @param {string} inputPath - Original input path (for logging)
@@ -159,15 +173,23 @@ export async function processTextureAVIFSharp(
  * @param {number} options.speed - Encoding speed (0-10)
  * @param {boolean} options.debug - Keep intermediate files for debugging (default: false)
  * @param {number} options.concurrency - Number of textures to process in parallel (default: 4)
- * @returns {Promise<void>}
+ * @param {boolean} options.keep - Keep original images, return AVIF data without modifying textures (default: false)
+ * @returns {Promise<Array|null>} In keep mode, returns array of { originalUri, avifUri, data }. Otherwise null.
  */
 export async function processTexturesAVIFSharp(doc, inputPath, options) {
-  const { quality = 80, speed = 4, debug = false, concurrency = 4 } = options;
+  const {
+    quality = 80,
+    speed = 4,
+    debug = false,
+    concurrency = 4,
+    keep = false,
+  } = options;
   const { EXTTextureAVIF } = await import("@gltf-transform/extensions");
-  const { listTextureSlots } = await import("@gltf-transform/functions");
+  const { listTextureSlots, getTextureChannelMask } = await import("@gltf-transform/functions");
 
-  // Create extension and set it as required
-  const avifExt = doc.createExtension(EXTTextureAVIF).setRequired(true);
+  // Create extension: required in replace mode (AVIF is the only format),
+  // not required in keep mode (original images serve as fallback).
+  doc.createExtension(EXTTextureAVIF).setRequired(!keep);
 
   const root = doc.getRoot();
   const textures = root.listTextures();
@@ -175,20 +197,31 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
   // Create debug directory if needed
   let outDir = null;
   if (debug) {
-    outDir = path.parse(inputPath).name;
+    outDir = `${path.parse(inputPath).name}-debug`;
     await fs.mkdir(outDir, { recursive: true });
   }
+
+  // For keep mode, collect AVIF data to return
+  const avifResults = [];
 
   // Statistics tracking
   const startTime = Date.now();
   let totalOriginalSize = 0;
   let totalCompressedSize = 0;
   let texturesProcessed = 0;
-  const totalTextures = textures.length;
   let completedCount = 0;
 
+  // Count processable textures
+  const processable = textures.filter((tex) =>
+    isProcessableMimeType(tex.getMimeType()),
+  );
+  const skipped = textures.length - processable.length;
+
+  if (skipped > 0) {
+    console.log(`Skipping ${skipped} texture(s) (already AVIF or unsupported format)`);
+  }
   console.log(
-    `Processing ${totalTextures} texture(s) with concurrency ${concurrency}...\n`,
+    `Processing ${processable.length} texture(s) with concurrency ${concurrency}...\n`,
   );
 
   try {
@@ -201,27 +234,50 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
         const image = tex.getImage();
         if (!image) return null;
 
-        const name = tex.getName() || `tex_${i}`;
         const mimeType = tex.getMimeType();
+        if (!isProcessableMimeType(mimeType)) return null;
+
+        const name = tex.getName() || `tex_${i}`;
+        const uri = tex.getURI();
         const slots = listTextureSlots(tex);
+        const channels = getTextureChannelMask(tex);
+        const needsAlpha = (channels & TextureChannel.A) !== 0;
+
+        // Compute AVIF URI preserving directory structure
+        let avifUri;
+        if (uri) {
+          const dir = path.dirname(uri);
+          const base = path.basename(uri, path.extname(uri));
+          avifUri = path.join(dir, `${base}.avif`).replace(/\\/g, "/");
+        } else {
+          avifUri = `${name}.avif`;
+        }
 
         const currentCount = ++completedCount;
         console.log(
-          `[${currentCount}/${totalTextures}] Encoding texture ${name} (${mimeType}) with slots:`,
-          slots,
+          `[${currentCount}/${processable.length}] Encoding texture ${name} (${mimeType})` +
+            ` with slots: [${slots}]${needsAlpha ? "" : " (stripping alpha)"}`,
         );
 
         try {
           // Save original image in debug mode
           if (debug && outDir) {
             const extension = getFileExt(mimeType);
-            const originalPath = path.join(outDir, `${name}${extension}`);
+            const debugRelPath = uri || `${name}${extension}`;
+            const originalPath = path.join(outDir, debugRelPath);
+            await fs.mkdir(path.dirname(originalPath), { recursive: true });
             await fs.writeFile(originalPath, image);
+          }
+
+          // Strip alpha if the material doesn't use it
+          let inputBuffer = image;
+          if (!needsAlpha) {
+            inputBuffer = await sharp(image).removeAlpha().png().toBuffer();
           }
 
           // Process and encode the texture
           const avifBuffer = await processTextureAVIFSharp(
-            image,
+            inputBuffer,
             slots,
             quality,
             speed,
@@ -229,13 +285,24 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
 
           // Save AVIF in debug mode
           if (debug && outDir) {
-            const avifPath = path.join(outDir, `${name}.avif`);
+            const avifPath = path.join(outDir, avifUri);
+            await fs.mkdir(path.dirname(avifPath), { recursive: true });
             await fs.writeFile(avifPath, avifBuffer);
           }
 
-          // Update texture
-          tex.setImage(avifBuffer);
-          tex.setMimeType("image/avif");
+          if (keep) {
+            // Keep mode: don't modify the texture, collect AVIF data
+            avifResults.push({
+              originalUri: tex.getURI(),
+              avifUri,
+              data: avifBuffer,
+            });
+          } else {
+            // Replace mode: update the texture in place
+            tex.setImage(avifBuffer);
+            tex.setMimeType("image/avif");
+            tex.setURI(avifUri);
+          }
 
           const ratio = ((1 - avifBuffer.length / image.length) * 100).toFixed(
             1,
@@ -306,4 +373,6 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
     }
     throw error;
   }
+
+  return keep ? avifResults : null;
 }

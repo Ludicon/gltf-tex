@@ -1,7 +1,172 @@
+import path from "node:path";
 import { parseArgs, validateRange } from "../utils/args.js";
-import { readGLTF, writeGLTF } from "../utils/io.js";
+import { readGLTF, writeGLTF, writeGLTFProcessed } from "../utils/io.js";
 import { processTexturesAVIF } from "../processors/avif.js";
 import { processTexturesAVIFSharp } from "../processors/avif-sharp.js";
+
+/**
+ * Strip an extension from the glTF JSON output.
+ * Removes it from extensionsUsed/extensionsRequired and from all texture entries.
+ * @param {object} json - glTF JSON object
+ * @param {string} extName - Extension name to strip (e.g. "MSFT_texture_dds")
+ */
+function stripExtension(json, extName) {
+  if (json.extensionsUsed) {
+    json.extensionsUsed = json.extensionsUsed.filter((e) => e !== extName);
+    if (json.extensionsUsed.length === 0) delete json.extensionsUsed;
+  }
+  if (json.extensionsRequired) {
+    json.extensionsRequired = json.extensionsRequired.filter(
+      (e) => e !== extName,
+    );
+    if (json.extensionsRequired.length === 0) delete json.extensionsRequired;
+  }
+
+  // Remove from texture entries
+  if (json.textures) {
+    for (const tex of json.textures) {
+      if (tex.extensions && tex.extensions[extName]) {
+        delete tex.extensions[extName];
+        if (Object.keys(tex.extensions).length === 0) {
+          delete tex.extensions;
+        }
+      }
+    }
+  }
+
+  // Remove orphaned images (images only referenced by the stripped extension).
+  // Build a set of all image indices still referenced by textures.
+  if (json.images && json.textures) {
+    const referenced = new Set();
+    for (const tex of json.textures) {
+      if (tex.source !== undefined) referenced.add(tex.source);
+      if (tex.extensions) {
+        for (const ext of Object.values(tex.extensions)) {
+          if (ext && ext.source !== undefined) referenced.add(ext.source);
+        }
+      }
+    }
+
+    // Build index remapping (only keep referenced images)
+    const remap = new Map();
+    const newImages = [];
+    for (let i = 0; i < json.images.length; i++) {
+      if (referenced.has(i)) {
+        remap.set(i, newImages.length);
+        newImages.push(json.images[i]);
+      }
+    }
+
+    // Only remap if we actually removed images
+    if (newImages.length < json.images.length) {
+      json.images = newImages;
+
+      // Update all source references
+      for (const tex of json.textures) {
+        if (tex.source !== undefined && remap.has(tex.source)) {
+          tex.source = remap.get(tex.source);
+        }
+        if (tex.extensions) {
+          for (const ext of Object.values(tex.extensions)) {
+            if (ext && ext.source !== undefined && remap.has(ext.source)) {
+              ext.source = remap.get(ext.source);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Add EXT_texture_avif extension references to the glTF JSON output.
+ * Used in keep mode: original images are preserved, AVIF added as extension.
+ * Matches by computing the expected AVIF URI from each image's URI in the output JSON,
+ * which is robust against gltf-transform reorganizing texture/image indices.
+ * @param {object} json - glTF JSON object
+ * @param {object} resources - Resource map (uri -> Uint8Array) to add AVIF files to
+ * @param {Array} avifData - Array of { originalUri, avifUri, data }
+ */
+function addAvifExtension(json, resources, avifData) {
+  if (!avifData || avifData.length === 0) return;
+  if (!json.images || !json.textures) return;
+
+  // Build a lookup from avifUri to data
+  const avifMap = new Map();
+  for (const { avifUri, data } of avifData) {
+    avifMap.set(avifUri, data);
+  }
+
+  // For each texture in the output, compute expected AVIF URI from its source image
+  // and check if we have AVIF data for it
+  const avifUriToImageIndex = new Map();
+  let matched = 0;
+
+  for (let ti = 0; ti < json.textures.length; ti++) {
+    const tex = json.textures[ti];
+    if (tex.source === undefined) continue;
+
+    const img = json.images[tex.source];
+    if (!img || !img.uri) continue;
+
+    // Compute expected AVIF URI by replacing the file extension
+    const dotIdx = img.uri.lastIndexOf(".");
+    if (dotIdx === -1) continue;
+    const avifUri = img.uri.substring(0, dotIdx) + ".avif";
+
+    if (!avifMap.has(avifUri)) continue;
+
+    // Get or create the AVIF image entry (dedup if same AVIF used by multiple textures)
+    let avifImageIndex;
+    if (avifUriToImageIndex.has(avifUri)) {
+      avifImageIndex = avifUriToImageIndex.get(avifUri);
+    } else {
+      avifImageIndex = json.images.length;
+      json.images.push({ uri: avifUri, mimeType: "image/avif" });
+      resources[avifUri] = new Uint8Array(avifMap.get(avifUri));
+      avifUriToImageIndex.set(avifUri, avifImageIndex);
+    }
+
+    if (!tex.extensions) tex.extensions = {};
+    tex.extensions["EXT_texture_avif"] = { source: avifImageIndex };
+    matched++;
+  }
+
+  // Add to extensionsUsed if we matched any textures
+  if (matched > 0) {
+    if (!json.extensionsUsed) json.extensionsUsed = [];
+    if (!json.extensionsUsed.includes("EXT_texture_avif")) {
+      json.extensionsUsed.push("EXT_texture_avif");
+    }
+  }
+}
+
+/**
+ * Remove resources (files) that are no longer referenced by the glTF JSON.
+ * This prevents writing orphaned files (e.g. DDS images after stripping MSFT_texture_dds).
+ * @param {object} json - glTF JSON object
+ * @param {object} resources - Resource map (uri -> Uint8Array) to clean up
+ */
+function cleanupResources(json, resources) {
+  const referenced = new Set();
+
+  if (json.images) {
+    for (const img of json.images) {
+      if (img.uri) referenced.add(img.uri);
+    }
+  }
+  if (json.buffers) {
+    for (const buf of json.buffers) {
+      if (buf.uri) referenced.add(buf.uri);
+    }
+  }
+
+  for (const uri of Object.keys(resources)) {
+    if (!referenced.has(uri)) {
+      delete resources[uri];
+    }
+  }
+}
 
 /**
  * AVIF command - Compress textures using AVIF format
@@ -16,6 +181,7 @@ export async function avifCommand(args) {
     blaze: false, // Use blaze_enc instead of avifenc
     debug: false, // Keep intermediate files for debugging
     concurrency: 4, // Number of textures to process in parallel
+    keep: false, // Keep original images, add AVIF as extension
   });
 
   // Show help if requested
@@ -39,10 +205,18 @@ export async function avifCommand(args) {
   // Auto-generate output path if not provided
   let finalOutputPath = outputPath;
   if (!finalOutputPath) {
-    const path = await import("node:path");
     const parsed = path.parse(inputPath);
     finalOutputPath = path.join(parsed.dir, `${parsed.name}-avif${parsed.ext}`);
     console.log(`Output file not specified, using: ${finalOutputPath}`);
+  }
+
+  // Keep mode is only supported for .gltf output
+  let keep = options.keep;
+  if (keep && finalOutputPath.endsWith(".glb")) {
+    console.warn(
+      "Warning: --keep mode is only supported for .gltf output. Using replace mode.",
+    );
+    keep = false;
   }
 
   // Validate options
@@ -59,6 +233,9 @@ export async function avifCommand(args) {
   console.log(
     `Quality: ${options.quality}, Speed: ${options.speed}, Concurrency: ${options.concurrency}`,
   );
+  if (keep) {
+    console.log("Mode: keep (original images preserved, AVIF added as extension)");
+  }
 
   let encoderName = "avifenc";
   if (options.sharp) encoderName = "sharp (npm)";
@@ -92,25 +269,45 @@ export async function avifCommand(args) {
     }
 
     // Process textures with the appropriate processor
+    const processorOptions = {
+      quality: options.quality,
+      speed: options.speed,
+      debug: options.debug,
+      concurrency: options.concurrency,
+      keep,
+    };
+
+    let avifData;
     if (options.sharp) {
-      await processTexturesAVIFSharp(doc, inputPath, {
-        quality: options.quality,
-        speed: options.speed,
-        debug: options.debug,
-        concurrency: options.concurrency,
-      });
+      avifData = await processTexturesAVIFSharp(doc, inputPath, processorOptions);
     } else {
-      await processTexturesAVIF(doc, inputPath, {
-        quality: options.quality,
-        speed: options.speed,
-        debug: options.debug,
+      avifData = await processTexturesAVIF(doc, inputPath, {
+        ...processorOptions,
         blaze: options.blaze,
-        concurrency: options.concurrency,
       });
     }
 
     // Write the output file
-    await writeGLTF(finalOutputPath, doc);
+    const isGltf = finalOutputPath.endsWith(".gltf");
+
+    if (isGltf) {
+      // For .gltf, use post-processing to handle extensions cleanly
+      await writeGLTFProcessed(finalOutputPath, doc, (json, resources) => {
+        // Strip MSFT_texture_dds (DDS images are not needed alongside AVIF)
+        stripExtension(json, "MSFT_texture_dds");
+
+        // In keep mode, add AVIF as extension references
+        if (keep && avifData) {
+          addAvifExtension(json, resources, avifData);
+        }
+
+        // Remove unreferenced resource files (e.g. orphaned DDS files)
+        cleanupResources(json, resources);
+      });
+    } else {
+      // For .glb, write directly
+      await writeGLTF(finalOutputPath, doc);
+    }
 
     console.log(`✓ Successfully wrote ${finalOutputPath}`);
   } catch (error) {

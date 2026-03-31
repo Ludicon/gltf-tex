@@ -11,6 +11,7 @@ import { avifCommand } from "../src/commands/avif.js";
 import { webpCommand } from "../src/commands/webp.js";
 import { sizeCommand } from "../src/commands/size.js";
 import { dedupCommand } from "../src/commands/dedup.js";
+import { convertPbrCommand } from "../src/commands/convert-pbr.js";
 
 const commands = {
   help: helpCommand,
@@ -18,6 +19,7 @@ const commands = {
   webp: webpCommand,
   size: sizeCommand,
   dedup: dedupCommand,
+  "convert-pbr": convertPbrCommand,
 };
 
 async function main() {

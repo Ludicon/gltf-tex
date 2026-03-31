@@ -1,8 +1,9 @@
-import { text } from "stream/consumers";
 import { parseArgs } from "../utils/args.js";
-import { readGLTF } from "../utils/io.js";
+import { readGLTF, readGLTFJson } from "../utils/io.js";
+import { isDDSMimeType } from "../utils/file.js";
 import { getTextureInfo, formatBytes } from "../utils/texture-info.js";
-import { listTextureSlots, getTextureChannelMask } from "@gltf-transform/functions";
+import { buildTextureSlotMap, listLogicalTextures } from "../utils/texture-slots.js";
+import { getTextureChannelMask } from "@gltf-transform/functions";
 
 /**
  * Size command - Display texture size information in a glTF model
@@ -10,7 +11,9 @@ import { listTextureSlots, getTextureChannelMask } from "@gltf-transform/functio
  * @returns {Promise<void>}
  */
 export async function sizeCommand(args) {
-  const options = parseArgs(args);
+  const options = parseArgs(args, {
+    dds: false, // Prefer DDS source when available
+  });
 
   // Show help if requested
   if (options.help) {
@@ -34,8 +37,8 @@ export async function sizeCommand(args) {
   console.log();
 
   try {
-    // Read the glTF file
-    const doc = await readGLTF(inputPath);
+    // Read the glTF document and raw JSON
+    const [doc, json] = await Promise.all([readGLTF(inputPath), readGLTFJson(inputPath)]);
 
     const root = doc.getRoot();
     const textures = root.listTextures();
@@ -43,6 +46,70 @@ export async function sizeCommand(args) {
     if (textures.length === 0) {
       console.log("No textures found in this model.");
       return;
+    }
+
+    // Build slot map using raw JSON for multi-source propagation
+    const slotMap = buildTextureSlotMap(textures, json);
+
+    // Map image URIs to gltf-transform Texture objects
+    const uriToTexObj = new Map();
+    for (const tex of textures) {
+      const uri = tex.getURI();
+      if (uri) uriToTexObj.set(uri, tex);
+    }
+
+    // Get the logical texture list from the raw JSON
+    const logicalTextures = listLogicalTextures(json);
+    const images = json.images || [];
+
+    // For each logical texture, pick the preferred source
+    const selectedTextures = [];
+    for (const logical of logicalTextures) {
+      // Collect candidate image indices: standard + alternatives
+      const candidates = [];
+      if (logical.standardImageIndex !== undefined) {
+        candidates.push(logical.standardImageIndex);
+      }
+      for (const idx of logical.altImageIndices) {
+        candidates.push(idx);
+      }
+
+      // Find the preferred source
+      let chosen = null;
+      if (options.dds) {
+        // Prefer DDS: pick the first DDS candidate, fall back to standard
+        for (const idx of candidates) {
+          const img = images[idx];
+          if (img && img.uri && uriToTexObj.has(img.uri)) {
+            const tex = uriToTexObj.get(img.uri);
+            if (isDDSMimeType(tex.getMimeType())) {
+              chosen = tex;
+              break;
+            }
+          }
+        }
+      }
+      // Default / fallback: prefer the standard source
+      if (!chosen && logical.standardImageIndex !== undefined) {
+        const img = images[logical.standardImageIndex];
+        if (img && img.uri && uriToTexObj.has(img.uri)) {
+          chosen = uriToTexObj.get(img.uri);
+        }
+      }
+      // Last resort: first available candidate
+      if (!chosen) {
+        for (const idx of candidates) {
+          const img = images[idx];
+          if (img && img.uri && uriToTexObj.has(img.uri)) {
+            chosen = uriToTexObj.get(img.uri);
+            break;
+          }
+        }
+      }
+
+      if (chosen) {
+        selectedTextures.push(chosen);
+      }
     }
 
     let totalSize = 0;
@@ -57,18 +124,19 @@ export async function sizeCommand(args) {
     console.log("└─────────────────────────────────────────────────────────────────────────────┘");
     console.log();
 
-    for (let i = 0; i < textures.length; i++) {
-      const tex = textures[i];
-      const slots = listTextureSlots(tex);
+    for (let i = 0; i < selectedTextures.length; i++) {
+      const tex = selectedTextures[i];
+      const slots = slotMap.get(tex) || [];
       const channels = getTextureChannelMask(tex);
       const info = getTextureInfo(tex, i, slots, channels);
 
       if (!info) continue;
 
-      let mimeType = tex.getMimeType();
+      const mimeType = tex.getMimeType();
+      const isGpuCompressed = mimeType === "image/ktx2" || isDDSMimeType(mimeType);
 
       totalSize += info.size;
-      if (mimeType == "image/ktx2") {
+      if (isGpuCompressed) {
         totalVmemSizeCompressed += info.videoMemorySize;
       } else {
         totalVmemSize += info.videoMemorySize;
@@ -83,7 +151,7 @@ export async function sizeCommand(args) {
       console.log(`  Disk size:   ${formatBytes(info.size)}`);
       console.log(`  Usage:       ${info.slots.join(", ") || "unused"}`);
       console.log(`  Video memory estimates:`);
-      if (mimeType == "image/ktx2") {
+      if (isGpuCompressed) {
         console.log(`    Compressed:      ${formatBytes(info.videoMemorySize)}`);
       } else {
         console.log(`    High quality:    ${formatBytes(info.videoMemorySize)} (with mipmaps)`);
@@ -98,7 +166,7 @@ export async function sizeCommand(args) {
     console.log("│                                   SUMMARY                                   │");
     console.log("└─────────────────────────────────────────────────────────────────────────────┘");
     console.log();
-    console.log(`Total textures:  ${textures.length}`);
+    console.log(`Total textures:  ${selectedTextures.length}`);
     console.log(`Total disk size: ${formatBytes(totalSize)}`);
     console.log();
     console.log("Estimated video memory usage:");

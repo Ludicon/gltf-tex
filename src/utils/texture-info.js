@@ -1,4 +1,6 @@
 import { ImageUtils, TextureChannel } from "@gltf-transform/core";
+import { isDDSMimeType } from "./file.js";
+import { getDDSDimensions, getDDSVideoMemorySize } from "./dds.js";
 
 /**
  * Format bytes to human-readable string
@@ -88,6 +90,9 @@ export function estimateCompressedSize(width, height, slots, channels, lowQualit
  * @returns {[number, number]} Width and height
  */
 export function getDimensionsFromImageBytes(bytes, mimeType) {
+  if (isDDSMimeType(mimeType)) {
+    return getDDSDimensions(bytes);
+  }
   const size = ImageUtils.getSize(bytes, mimeType);
   return size ? [size[0], size[1]] : [0, 0];
 }
@@ -109,12 +114,18 @@ export function getTextureInfo(texture, index, slots, channels) {
 
   const [width, height] = getDimensionsFromImageBytes(image, mimeType);
 
-  // For KTX2 files, use actual VRAM calculation
+  // Estimate VRAM usage based on format
   let videoMemorySize, videoMemorySizeLow, videoMemorySizeUncompressed;
   if (mimeType === "image/ktx2") {
     videoMemorySize = ImageUtils.getVRAMByteLength(new Uint8Array(image), mimeType);
     videoMemorySizeLow = videoMemorySize; // KTX2 is already compressed
     videoMemorySizeUncompressed = videoMemorySize; // Already in GPU format
+  } else if (mimeType === "image/vnd-ms.dds") {
+    // DDS stores GPU-ready block-compressed data; file payload ≈ VRAM footprint
+    const ddsVram = getDDSVideoMemorySize(image);
+    videoMemorySize = ddsVram;
+    videoMemorySizeLow = ddsVram;
+    videoMemorySizeUncompressed = ddsVram;
   } else {
     videoMemorySize = estimateCompressedSize(width, height, slots, channels, false);
     videoMemorySizeLow = estimateCompressedSize(width, height, slots, channels, true);
