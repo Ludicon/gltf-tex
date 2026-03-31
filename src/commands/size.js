@@ -51,21 +51,47 @@ export async function sizeCommand(args) {
     // Build slot map using raw JSON for multi-source propagation
     const slotMap = buildTextureSlotMap(textures, json);
 
-    // Map image URIs to gltf-transform Texture objects
-    const uriToTexObj = new Map();
+    // Build a map from image index to gltf-transform Texture object.
+    // Match by URI when available (for .gltf), fall back to name or index order (for .glb).
+    const imageIndexToTex = new Map();
+    const uriToTex = new Map();
+    const nameToTex = new Map();
     for (const tex of textures) {
       const uri = tex.getURI();
-      if (uri) uriToTexObj.set(uri, tex);
+      if (uri) uriToTex.set(uri, tex);
+      const name = tex.getName();
+      if (name) nameToTex.set(name, tex);
+    }
+
+    const images = json.images || [];
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
+      // Try URI match first, then name match
+      const tex = (img.uri && uriToTex.get(img.uri)) ||
+                  (img.name && nameToTex.get(img.name));
+      if (tex) imageIndexToTex.set(i, tex);
+    }
+
+    // If URI/name matching left gaps (e.g. embedded GLB without names),
+    // fall back to index-order matching.
+    if (imageIndexToTex.size < Math.min(images.length, textures.length)) {
+      const matched = new Set(imageIndexToTex.values());
+      const unmatchedTextures = textures.filter((t) => !matched.has(t));
+      let nextUnmatched = 0;
+      for (let i = 0; i < images.length; i++) {
+        if (!imageIndexToTex.has(i) && nextUnmatched < unmatchedTextures.length) {
+          imageIndexToTex.set(i, unmatchedTextures[nextUnmatched++]);
+        }
+      }
     }
 
     // Get the logical texture list from the raw JSON
     const logicalTextures = listLogicalTextures(json);
-    const images = json.images || [];
 
     // For each logical texture, pick the preferred source
     const selectedTextures = [];
     for (const logical of logicalTextures) {
-      // Collect candidate image indices: standard + alternatives
+      // Collect all candidate image indices
       const candidates = [];
       if (logical.standardImageIndex !== undefined) {
         candidates.push(logical.standardImageIndex);
@@ -77,33 +103,21 @@ export async function sizeCommand(args) {
       // Find the preferred source
       let chosen = null;
       if (options.dds) {
-        // Prefer DDS: pick the first DDS candidate, fall back to standard
         for (const idx of candidates) {
-          const img = images[idx];
-          if (img && img.uri && uriToTexObj.has(img.uri)) {
-            const tex = uriToTexObj.get(img.uri);
-            if (isDDSMimeType(tex.getMimeType())) {
-              chosen = tex;
-              break;
-            }
-          }
-        }
-      }
-      // Default / fallback: prefer the standard source
-      if (!chosen && logical.standardImageIndex !== undefined) {
-        const img = images[logical.standardImageIndex];
-        if (img && img.uri && uriToTexObj.has(img.uri)) {
-          chosen = uriToTexObj.get(img.uri);
-        }
-      }
-      // Last resort: first available candidate
-      if (!chosen) {
-        for (const idx of candidates) {
-          const img = images[idx];
-          if (img && img.uri && uriToTexObj.has(img.uri)) {
-            chosen = uriToTexObj.get(img.uri);
+          const tex = imageIndexToTex.get(idx);
+          if (tex && isDDSMimeType(tex.getMimeType())) {
+            chosen = tex;
             break;
           }
+        }
+      }
+      if (!chosen && logical.standardImageIndex !== undefined) {
+        chosen = imageIndexToTex.get(logical.standardImageIndex);
+      }
+      if (!chosen) {
+        for (const idx of candidates) {
+          chosen = imageIndexToTex.get(idx);
+          if (chosen) break;
         }
       }
 
