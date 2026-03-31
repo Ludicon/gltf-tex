@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { NodeIO } from "@gltf-transform/core";
+import { readGLB } from "./glb.js";
 import {
   EXTMeshGPUInstancing,
   EXTMeshoptCompression,
@@ -88,6 +89,10 @@ export async function createIO() {
  */
 export async function readGLTF(filePath) {
   const io = await createIO();
+  if (filePath.endsWith(".glb")) {
+    const jsonDoc = await readGLB(filePath);
+    return io.readJSON(jsonDoc);
+  }
   return io.read(filePath);
 }
 
@@ -99,6 +104,10 @@ export async function readGLTF(filePath) {
  * @returns {Promise<object>} Raw glTF JSON
  */
 export async function readGLTFJson(filePath) {
+  if (filePath.endsWith(".glb")) {
+    const jsonDoc = await readGLB(filePath);
+    return jsonDoc.json;
+  }
   const io = await createIO();
   const jsonDoc = await io.readAsJSON(filePath);
   return jsonDoc.json;

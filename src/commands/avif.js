@@ -1,5 +1,6 @@
 import path from "node:path";
 import { parseArgs, validateRange } from "../utils/args.js";
+import { isDDSMimeType } from "../utils/file.js";
 import { readGLTF, writeGLTF, writeGLTFProcessed } from "../utils/io.js";
 import { processTexturesAVIF } from "../processors/avif.js";
 import { processTexturesAVIFSharp } from "../processors/avif-sharp.js";
@@ -287,13 +288,23 @@ export async function avifCommand(args) {
       });
     }
 
+    // Remove DDS textures from the document — they are not needed alongside
+    // AVIF and would bloat the output (especially for .glb where everything
+    // is packed into a single binary).
+    const allTextures = doc.getRoot().listTextures();
+    for (const tex of allTextures) {
+      if (isDDSMimeType(tex.getMimeType())) {
+        tex.dispose();
+      }
+    }
+
     // Write the output file
     const isGltf = finalOutputPath.endsWith(".gltf");
 
     if (isGltf) {
       // For .gltf, use post-processing to handle extensions cleanly
       await writeGLTFProcessed(finalOutputPath, doc, (json, resources) => {
-        // Strip MSFT_texture_dds (DDS images are not needed alongside AVIF)
+        // Strip MSFT_texture_dds from the JSON (extension refs, extensionsUsed)
         stripExtension(json, "MSFT_texture_dds");
 
         // In keep mode, add AVIF as extension references
@@ -301,11 +312,10 @@ export async function avifCommand(args) {
           addAvifExtension(json, resources, avifData);
         }
 
-        // Remove unreferenced resource files (e.g. orphaned DDS files)
+        // Remove unreferenced resource files
         cleanupResources(json, resources);
       });
     } else {
-      // For .glb, write directly
       await writeGLTF(finalOutputPath, doc);
     }
 

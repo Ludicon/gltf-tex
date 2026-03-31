@@ -220,8 +220,10 @@ export async function processTexturesAVIF(doc, inputPath, options) {
   let texturesProcessed = 0;
   let completedCount = 0;
 
-  // Count processable textures
-  const processable = textures.filter((tex) => isProcessableMimeType(tex.getMimeType()));
+  // Count processable textures (skip non-processable formats and unreferenced textures)
+  const processable = textures.filter(
+    (tex) => isProcessableMimeType(tex.getMimeType()) && listTextureSlots(tex).length > 0,
+  );
   const skipped = textures.length - processable.length;
 
   if (skipped > 0) {
@@ -242,6 +244,12 @@ export async function processTexturesAVIF(doc, inputPath, options) {
         const mimeType = tex.getMimeType();
         if (!isProcessableMimeType(mimeType)) return null;
 
+        const slots = listTextureSlots(tex);
+
+        // Skip textures not referenced by any material (orphaned duplicates
+        // that gltf-transform creates from GLB texture/image index mismatches).
+        if (slots.length === 0) return null;
+
         const extension = getFileExt(mimeType);
         const { relPath, relDir, baseName } = getTexturePaths(tex, i, extension);
 
@@ -251,8 +259,6 @@ export async function processTexturesAVIF(doc, inputPath, options) {
         // Ensure subdirectories exist
         await fs.mkdir(path.dirname(inPath), { recursive: true });
         await fs.mkdir(path.dirname(outPath), { recursive: true });
-
-        const slots = listTextureSlots(tex);
         const channels = getTextureChannelMask(tex);
         const needsAlpha = (channels & TextureChannel.A) !== 0;
 
