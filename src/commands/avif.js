@@ -183,6 +183,7 @@ export async function avifCommand(args) {
     debug: false, // Keep intermediate files for debugging
     concurrency: 4, // Number of textures to process in parallel
     keep: false, // Keep original images, add AVIF as extension
+    "max-size": 0, // Max texture dimension (width/height), 0 = no limit
   });
 
   // Show help if requested
@@ -234,6 +235,9 @@ export async function avifCommand(args) {
   console.log(
     `Quality: ${options.quality}, Speed: ${options.speed}, Concurrency: ${options.concurrency}`,
   );
+  if (options["max-size"] > 0) {
+    console.log(`Max texture size: ${options["max-size"]}px`);
+  }
   if (keep) {
     console.log("Mode: keep (original images preserved, AVIF added as extension)");
   }
@@ -276,6 +280,7 @@ export async function avifCommand(args) {
       debug: options.debug,
       concurrency: options.concurrency,
       keep,
+      maxSize: options["max-size"],
     };
 
     let avifData;

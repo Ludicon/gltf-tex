@@ -183,6 +183,7 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
     debug = false,
     concurrency = 4,
     keep = false,
+    maxSize = 0,
   } = options;
   const { EXTTextureAVIF } = await import("@gltf-transform/extensions");
   const { listTextureSlots, getTextureChannelMask } = await import("@gltf-transform/functions");
@@ -211,9 +212,9 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
   let texturesProcessed = 0;
   let completedCount = 0;
 
-  // Count processable textures
-  const processable = textures.filter((tex) =>
-    isProcessableMimeType(tex.getMimeType()),
+  // Count processable textures (skip non-processable formats and unreferenced textures)
+  const processable = textures.filter(
+    (tex) => isProcessableMimeType(tex.getMimeType()) && listTextureSlots(tex).length > 0,
   );
   const skipped = textures.length - processable.length;
 
@@ -237,9 +238,11 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
         const mimeType = tex.getMimeType();
         if (!isProcessableMimeType(mimeType)) return null;
 
+        const slots = listTextureSlots(tex);
+        if (slots.length === 0) return null;
+
         const name = tex.getName() || `tex_${i}`;
         const uri = tex.getURI();
-        const slots = listTextureSlots(tex);
         const channels = getTextureChannelMask(tex);
         const needsAlpha = (channels & TextureChannel.A) !== 0;
 
@@ -273,6 +276,17 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
           let inputBuffer = image;
           if (!needsAlpha) {
             inputBuffer = await sharp(image).removeAlpha().png().toBuffer();
+          }
+
+          // Resize if --max-size is set (only shrink, preserve aspect ratio)
+          if (maxSize > 0) {
+            const meta = await sharp(inputBuffer).metadata();
+            if (meta.width > maxSize || meta.height > maxSize) {
+              inputBuffer = await sharp(inputBuffer)
+                .resize(maxSize, maxSize, { fit: "inside" })
+                .png()
+                .toBuffer();
+            }
           }
 
           // Process and encode the texture

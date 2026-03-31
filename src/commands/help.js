@@ -69,6 +69,7 @@ OPTIONS:
   --quality <0-100>   Quality level for compression (default: 80)
   --speed <0-10>      Encoding speed: 0=slowest, 10=fastest (default: 4)
   --concurrency <1-32> Number of textures to process in parallel (default: 4)
+  --max-size <pixels> Resize textures so width and height do not exceed this value
   --keep              Keep original images, add AVIF as extension (.gltf only)
   --blaze             Use blaze_enc instead of avifenc (experimental)
   --debug             Keep intermediate files for debugging

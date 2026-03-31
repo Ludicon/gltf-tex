@@ -195,7 +195,7 @@ function getTexturePaths(tex, index, extension) {
  * @returns {Promise<Array|null>} In keep mode, returns array of { originalUri, avifUri, data }. Otherwise null.
  */
 export async function processTexturesAVIF(doc, inputPath, options) {
-  const { quality = 80, speed = 4, debug = false, blaze = false, concurrency = 4, keep = false } = options;
+  const { quality = 80, speed = 4, debug = false, blaze = false, concurrency = 4, keep = false, maxSize = 0 } = options;
   const { EXTTextureAVIF } = await import("@gltf-transform/extensions");
   const { listTextureSlots, getTextureChannelMask } = await import("@gltf-transform/functions");
 
@@ -290,6 +290,15 @@ export async function processTexturesAVIF(doc, inputPath, options) {
             const noAlphaPath = inPath.replace(/\.[^.]+$/, "-noalpha.png");
             await run("magick", [inPath, "-alpha", "off", noAlphaPath]);
             inPath = noAlphaPath;
+          }
+
+          // Resize if --max-size is set
+          if (maxSize > 0) {
+            const resizedPath = inPath.replace(/\.[^.]+$/, "-resized.png");
+            await run("magick", [
+              inPath, "-resize", `${maxSize}x${maxSize}>`, resizedPath,
+            ]);
+            inPath = resizedPath;
           }
 
           // Process with appropriate encoder
