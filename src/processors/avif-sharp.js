@@ -156,6 +156,26 @@ export async function processTextureAVIFSharp(
  * @param {string} mimeType - Texture MIME type
  * @returns {boolean}
  */
+/**
+ * Negate the green channel of an image (D3D → GL normal map convention).
+ * @param {Buffer} imageBuffer
+ * @returns {Promise<Buffer>}
+ */
+async function negateGreenChannel(imageBuffer) {
+  const { data, info } = await sharp(imageBuffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  for (let i = 1; i < data.length; i += info.channels) {
+    data[i] = 255 - data[i];
+  }
+
+  return sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } })
+    .png()
+    .toBuffer();
+}
+
 function isProcessableMimeType(mimeType) {
   return (
     mimeType === "image/png" ||
@@ -184,6 +204,7 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
     concurrency = 4,
     keep = false,
     maxSize = 0,
+    flipNormals = false,
   } = options;
   const { EXTTextureAVIF } = await import("@gltf-transform/extensions");
   const { listTextureSlots, getTextureChannelMask } = await import("@gltf-transform/functions");
