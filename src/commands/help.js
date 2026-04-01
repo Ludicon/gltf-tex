@@ -70,6 +70,7 @@ OPTIONS:
   --speed <0-10>      Encoding speed: 0=slowest, 10=fastest (default: 4)
   --concurrency <1-32> Number of textures to process in parallel (default: 4)
   --max-size <pixels> Resize textures so width and height do not exceed this value
+  --flip-normals      Flip normal map Y channel (D3D to GL convention)
   --keep              Keep original images, add AVIF as extension (.gltf only)
   --blaze             Use blaze_enc instead of avifenc (experimental)
   --debug             Keep intermediate files for debugging
