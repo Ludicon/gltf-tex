@@ -211,6 +211,7 @@ ARGUMENTS:
 
 OPTIONS:
   --exact           Bake glossinessFactor into MR textures for exact results
+  --reinterpret     Treat glossiness alpha as roughness (no inversion)
   -h, --help        Show this help message
 
 DESCRIPTION:
@@ -221,7 +222,7 @@ DESCRIPTION:
   - diffuseTexture/Factor  -> baseColorTexture/Factor
   - specularFactor         -> KHR_materials_specular.specularColorFactor
   - specularGlossinessTexture (RGB) -> KHR_materials_specular.specularColorTexture
-  - metallicFactor is set to 0
+  - metallicFactor is set to 0, IOR is set to 1000
 
   For roughness (derived from glossiness):
   - If the specularGlossiness texture has constant alpha (or no texture),
@@ -238,10 +239,17 @@ DESCRIPTION:
   results, which may produce multiple MR textures for the same source texture
   when materials use different glossiness factors.
 
+  With --reinterpret, the glossiness alpha is treated as roughness directly
+  (no inversion). This is useful when the source asset's glossiness maps were
+  authored as roughness maps stored in the glossiness slot. The alpha is
+  transferred to the MR texture's G channel as-is, and roughnessFactor is
+  set to glossinessFactor.
+
 EXAMPLES:
   gltf-tex convert-pbr scene.gltf
   gltf-tex convert-pbr scene.gltf scene-converted.gltf
   gltf-tex convert-pbr scene.gltf --exact
+  gltf-tex convert-pbr scene.gltf --reinterpret
 `,
   };
 

@@ -11,6 +11,7 @@ import { convertSpecGlossToMetalRough } from "../processors/convert-pbr.js";
 export async function convertPbrCommand(args) {
   const options = parseArgs(args, {
     exact: false, // Bake glossinessFactor into MR textures for exact results
+    reinterpret: false, // Treat glossiness alpha as roughness directly
   });
 
   // Show help if requested
@@ -45,7 +46,10 @@ export async function convertPbrCommand(args) {
     const doc = await readGLTF(inputPath);
 
     const { converted, texturesGenerated } =
-      await convertSpecGlossToMetalRough(doc, { exact: options.exact });
+      await convertSpecGlossToMetalRough(doc, {
+        exact: options.exact,
+        reinterpret: options.reinterpret,
+      });
 
     if (converted === 0) {
       console.log("No KHR_materials_pbrSpecularGlossiness materials found.");
