@@ -184,6 +184,7 @@ export async function avifCommand(args) {
     concurrency: 4, // Number of textures to process in parallel
     keep: false, // Keep original images, add AVIF as extension
     "max-size": 0, // Max texture dimension (width/height), 0 = no limit
+    "flip-normals": false, // Flip normal map Y (D3D → GL convention)
   });
 
   // Show help if requested
@@ -281,6 +282,7 @@ export async function avifCommand(args) {
       concurrency: options.concurrency,
       keep,
       maxSize: options["max-size"],
+      flipNormals: options["flip-normals"],
     };
 
     let avifData;

@@ -272,10 +272,15 @@ export async function processTexturesAVIFSharp(doc, inputPath, options) {
             await fs.writeFile(originalPath, image);
           }
 
-          // Strip alpha if the material doesn't use it
+          // Flip normal map Y (green channel) from D3D to GL convention
           let inputBuffer = image;
+          if (flipNormals && slots.includes("normalTexture")) {
+            inputBuffer = await negateGreenChannel(inputBuffer);
+          }
+
+          // Strip alpha if the material doesn't use it
           if (!needsAlpha) {
-            inputBuffer = await sharp(image).removeAlpha().png().toBuffer();
+            inputBuffer = await sharp(inputBuffer).removeAlpha().png().toBuffer();
           }
 
           // Resize if --max-size is set (only shrink, preserve aspect ratio)

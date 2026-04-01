@@ -195,7 +195,7 @@ function getTexturePaths(tex, index, extension) {
  * @returns {Promise<Array|null>} In keep mode, returns array of { originalUri, avifUri, data }. Otherwise null.
  */
 export async function processTexturesAVIF(doc, inputPath, options) {
-  const { quality = 80, speed = 4, debug = false, blaze = false, concurrency = 4, keep = false, maxSize = 0 } = options;
+  const { quality = 80, speed = 4, debug = false, blaze = false, concurrency = 4, keep = false, maxSize = 0, flipNormals = false } = options;
   const { EXTTextureAVIF } = await import("@gltf-transform/extensions");
   const { listTextureSlots, getTextureChannelMask } = await import("@gltf-transform/functions");
 
@@ -283,6 +283,15 @@ export async function processTexturesAVIF(doc, inputPath, options) {
             const tmpPath = path.join(tmpDir, relDir, `${baseName}-tmp.png`);
             await decodeWebpTexture(inPath, tmpPath);
             inPath = tmpPath;
+          }
+
+          // Flip normal map Y (green channel) from D3D to GL convention
+          if (flipNormals && slots.includes("normalTexture")) {
+            const flippedPath = inPath.replace(/\.[^.]+$/, "-flipy.png");
+            await run("magick", [
+              inPath, "-channel", "G", "-negate", "+channel", flippedPath,
+            ]);
+            inPath = flippedPath;
           }
 
           // Strip alpha channel if the material doesn't use it
